@@ -144,3 +144,64 @@ quadro_medalhas_atletas <- dados_participacoes %>%
          ouro, prata, bronze, total_geral) %>%
   arrange(desc(total_geral), desc(ouro), desc(prata), desc(bronze), desc(nome))
 ```
+
+Se você quiser o número de medalhas por pais (considerando cada medalha entregue):
+
+```{r}
+quadro_medalhas_pais_atletas <- dados_participacoes %>%
+  filter(!is.na(medalha)) %>%
+  mutate(estacao_medalha = case_when(
+    estacao == "Verão" ~ paste0("verao_", tolower(medalha)),
+    estacao == "Inverno" ~ paste0("inverno_", tolower(medalha))
+  )) %>%
+  group_by(pais_sg, pais, estacao_medalha) %>%
+  summarise(contagem = n(), .groups = "drop") %>%
+  pivot_wider(names_from = estacao_medalha, 
+              values_from = contagem, 
+              values_fill = 0) %>%
+  mutate(
+    ouro   = rowSums(select(., any_of(c("verao_ouro", "inverno_ouro"))), na.rm = TRUE),
+    prata  = rowSums(select(., any_of(c("verao_prata", "inverno_prata"))), na.rm = TRUE),
+    bronze = rowSums(select(., any_of(c("verao_bronze", "inverno_bronze"))), na.rm = TRUE),
+    total_verao = rowSums(select(., any_of(c("verao_ouro", "verao_prata", "verao_bronze"))), na.rm = TRUE),
+    total_inverno = rowSums(select(., any_of(c("inverno_ouro", "inverno_prata", "inverno_bronze"))), na.rm = TRUE),
+    total_geral = total_verao + total_inverno
+  ) %>%
+  select(pais_sg, pais, 
+         any_of(c("verao_ouro", "verao_prata", "verao_bronze", "total_verao")),
+         any_of(c("inverno_ouro", "inverno_prata", "inverno_bronze", "total_inverno")),
+         ouro, prata, bronze, total_geral) %>%
+  arrange(desc(ouro), desc(prata))
+```
+
+Por esse método de contagem o Brasil possui 144 medalhas de ouro.  
+Agora, se você quiser o número de medalhas por país considerando apenas 1 medalha por time para jogos em grupo, o Brasil teria 37 medalhas de ouro.
+
+```{r}
+quadro_medalhas_pais_modalidades <- dados_participacoes %>%
+  filter(!is.na(medalha)) %>%
+  # Considerar apenas modalidades dintintas para cada edição
+  distinct(edicao_id, pais_sg, pais, esporte, modalidade, medalha, estacao) %>% 
+  mutate(estacao_medalha = case_when(
+    estacao == "Verão" ~ paste0("verao_", tolower(medalha)),
+    estacao == "Inverno" ~ paste0("inverno_", tolower(medalha))
+  )) %>%
+  group_by(pais_sg, pais, estacao_medalha) %>%
+  summarise(contagem = n(), .groups = "drop") %>%
+  pivot_wider(names_from = estacao_medalha, 
+              values_from = contagem, 
+              values_fill = 0) %>%
+  mutate(
+    ouro   = rowSums(select(., any_of(c("verao_ouro", "inverno_ouro"))), na.rm = TRUE),
+    prata  = rowSums(select(., any_of(c("verao_prata", "inverno_prata"))), na.rm = TRUE),
+    bronze = rowSums(select(., any_of(c("verao_bronze", "inverno_bronze"))), na.rm = TRUE),
+    total_verao = rowSums(select(., any_of(c("verao_ouro", "verao_prata", "verao_bronze"))), na.rm = TRUE),
+    total_inverno = rowSums(select(., any_of(c("inverno_ouro", "inverno_prata", "inverno_bronze"))), na.rm = TRUE),
+    total_geral = total_verao + total_inverno
+  ) %>%
+  select(pais_sg, pais, 
+         any_of(c("verao_ouro", "verao_prata", "verao_bronze", "total_verao")),
+         any_of(c("inverno_ouro", "inverno_prata", "inverno_bronze", "total_inverno")),
+         ouro, prata, bronze, total_geral) %>%
+  arrange(desc(ouro), desc(prata))
+```
