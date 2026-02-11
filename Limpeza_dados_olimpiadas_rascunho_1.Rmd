@@ -1,0 +1,146 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Bibliotecas utilizadas
+
+```{r}
+library(tidyverse)
+library(janitor)
+```
+
+Bases de dados: Historical Data from the Olympics
+Disponíveis em: <https://basedosdados.org/dataset/62f8cb83-ac37-48be-874b-b94dd92d3e2b?table=567b1ccd-d8c2-4616-bacb-cf5c0e7b8d89>
+
+```{r}
+# Base de Dados 1: Resultados Atletas
+resultados_atletas <- read.csv("Dados/world_olympedia_olympics_athlete_event_result.csv") %>%
+  select(edition, edition_id, athlete_id, sport, country_noc, event, medal) %>%
+  mutate(edition_id = as.numeric(edition_id),
+         athlete_id = as.numeric(athlete_id),
+         medal = na_if(medal, ""))
+
+# Base de Dados 2: Bio Atletas
+bio_atletas <- read.csv("Dados/world_olympedia_olympics_athlete_bio.csv") %>%
+  select(athlete_id, sex, name) %>%
+  mutate(athlete_id = as.numeric(athlete_id))
+
+# União das Bases
+dados_participacoes <- resultados_atletas %>%
+  left_join(bio_atletas, by = "athlete_id")
+
+rm(resultados_atletas, bio_atletas)
+```
+
+Alguns atletas não estão com suas informações contidas na segunda base de dados. Vamos adicionar manualmente essas informações.  
+Os dados utilizados foram extraídos utilizando o id do atleta segundo a Olympedia.  
+Disponível em: <https://www.olympedia.org/>
+
+```{r}
+# Dados Faltantes
+dados_participacoes <- dados_participacoes %>% 
+  mutate(name = case_when(
+    athlete_id == 69534 ~ "John Thornton",
+    athlete_id == 36110 ~ "Frank Courtney",
+    athlete_id == 2302137 ~ "Peter Hunter Gaskell",
+    athlete_id == 902283 ~ "Kay Todd, Jr.",
+    athlete_id == 920957 ~ "Hoka Iwabuchi",
+    athlete_id == 37833 ~ "Hans Joachim Hannemann",
+    TRUE ~ name),
+    sex = case_when(athlete_id %in% c(69534,36110,2302137,902283,920957,37833) ~ "Male",
+                    TRUE ~ sex))
+```
+
+Ao analisar a base de dados acima, podemos encontrar casos de atletas com informações duplicadas. Essas "cópias" podem ser exatamente iguais (linhas duplicadas) ou pequenas variações.
+Para remover essas cópias, vamos considerar que o atleta só pode participar em uma determinada edição, em uma determinada modalidade de um determinado esporte uma única vez, ou seja, um atleta não poderá representar mais de um país em uma mesma partida nem poderá obter mais de uma premiação. Para isso vamos selecionar a primeira aparição daquele dado em nosso dataframe.  
+Observação: É importante garantir que caso o atleta tenha ganhado alguma premiação, nós não podemos correr o risco de selecionar uma cópia em que ele aparece sem premiação. Por esta razão é necessário ordenar nossos dados para que as cópias que indicam que houve premiação apareçam primeiro.
+
+```{r}
+# Remoção de "Duplicatas"
+dados_participacoes <- dados_participacoes %>%
+  arrange(athlete_id, edition_id, sport, event, medal) %>% 
+  group_by(athlete_id, edition_id, sport, event) %>%
+  slice(1) %>% 
+  ungroup()
+```
+
+O Comitê Olímpico Internacional não reconhece as medalhas dos intercalados de 1906 como ificiais.
+
+```{r}
+# Remoção - Intercalados de 1906
+dados_participacoes <- dados_participacoes %>% 
+  filter(edition != "1906  Intercalated Games")
+```
+
+Para tornar nossa base de dados mais acessível, vamos traduzir o nome das colunas e algumas variáveis categóricas para o português.
+
+```{r}
+# Tradução
+dados_participacoes <- dados_participacoes %>% 
+  transmute(edicao_id = edition_id,
+            ano = as.numeric(str_extract(edition, "\\d{4}")),
+            estacao = case_when(str_detect(edition, "Summer") ~ "Verão",
+                                str_detect(edition, "Equestrian") ~ "Verão",
+                                str_detect(edition, "Winter") ~ "Inverno",
+                                ),
+            atleta_id = athlete_id,
+            nome = name,
+            pais_sg = country_noc,
+            sexo = case_when(sex == "Male" ~ "Homem",
+                             sex == "Female" ~"Mulher"),
+            esporte = sport,
+            modalidade = event,
+            medalha = factor(medal,
+                             level = c("Gold", "Silver", "Bronze"),
+                             labels = c("Ouro", "Prata", "Bronze")))
+```
+
+Para adicionar o nome dos países em português, vamos usar uma tabela de converção segundo os padrões do COI. A tabela foi elaborada por mim com dados disponíveis online em: <https://pt.wikipedia.org/wiki/Lista_de_pa%C3%ADses_por_c%C3%B3digo_do_COI>.
+
+```{r}
+# Traduções por Sigla
+siglas_convercao <- read.csv("siglas_grupos_coi.csv")
+
+dados_participacoes <- dados_participacoes %>%
+  left_join(siglas_convercao, by = "pais_sg")
+
+rm(siglas_convercao)
+```
+
+Agora os dados estão tratados e podem ser utilizados para nossa análise.
+
+Exemplo: Quadro de medalhas por atleta.
+
+```{r}
+quadro_medalhas_atletas <- dados_participacoes %>%
+  # Somente medalhistas
+  filter(!is.na(medalha)) %>%
+  # Divisão das medalhas por estação
+  mutate(estacao_medalha = case_when(
+    estacao == "Verão" ~ paste0("verao_", tolower(medalha)),
+    estacao == "Inverno" ~ paste0("inverno_", tolower(medalha))
+  )) %>%
+  group_by(atleta_id, nome, estacao_medalha) %>%
+  summarise(contagem = n(), .groups = "drop") %>%
+  pivot_wider(names_from = estacao_medalha, 
+              values_from = contagem, 
+              values_fill = 0) %>%
+  # Números totais de medalhas
+  mutate(
+    ouro   = rowSums(select(., any_of(c("verao_ouro", "inverno_ouro"))), na.rm = TRUE),
+    prata  = rowSums(select(., any_of(c("verao_prata", "inverno_prata"))), na.rm = TRUE),
+    bronze = rowSums(select(., any_of(c("verao_bronze", "inverno_bronze"))), na.rm = TRUE),
+    # Totais por Estação
+    total_verao = rowSums(select(., any_of(c("verao_ouro", "verao_prata", "verao_bronze"))), na.rm = TRUE),
+    total_inverno = rowSums(select(., any_of(c("inverno_ouro", "inverno_prata", "inverno_bronze"))), na.rm = TRUE),
+    # Total Absoluto
+    total_geral = total_verao + total_inverno
+  ) %>%
+  # Reordenar as colunas
+  select(atleta_id, nome,
+         any_of(c("verao_ouro", "verao_prata", "verao_bronze", "total_verao")),
+         any_of(c("inverno_ouro", "inverno_prata", "inverno_bronze", "total_inverno")),
+         ouro, prata, bronze, total_geral) %>%
+  arrange(desc(total_geral), desc(ouro), desc(prata), desc(bronze), desc(nome))
+```
