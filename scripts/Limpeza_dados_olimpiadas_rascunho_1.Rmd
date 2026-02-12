@@ -6,8 +6,11 @@ output: html_notebook
 Bibliotecas utilizadas
 
 ```{r, message=FALSE, warning=FALSE}
-library(tidyverse)
+library(dplyr)
+library(stringr)
+library(tidyr)
 library(janitor)
+library(tidygeocoder)
 ```
 
 Bases de dados: Historical Data from the Olympics
@@ -82,8 +85,7 @@ dados_participacoes <- dados_participacoes %>%
             ano = as.numeric(str_extract(edition, "\\d{4}")),
             estacao = case_when(str_detect(edition, "Summer") ~ "Verão",
                                 str_detect(edition, "Equestrian") ~ "Verão",
-                                str_detect(edition, "Winter") ~ "Inverno",
-                                ),
+                                str_detect(edition, "Winter") ~ "Inverno"),
             atleta_id = athlete_id,
             nome = name,
             pais_sg = country_noc,
@@ -109,8 +111,6 @@ siglas_convercao <- read.csv("Dados/world_olympedia_olympics_country.csv") %>%
 
 dados_participacoes <- dados_participacoes %>%
   left_join(siglas_convercao, by = "pais_sg")
-
-rm(siglas_convercao)
 ```
  
 Agora os dados estão tratados e podem ser utilizados para nossa análise.
@@ -209,4 +209,50 @@ quadro_medalhas_pais_modalidades <- dados_participacoes %>%
          any_of(c("inverno_ouro", "inverno_prata", "inverno_bronze", "total_inverno")),
          ouro, prata, bronze, total_geral) %>%
   arrange(desc(ouro), desc(prata))
+```
+
+Agora vamos pegar as coordenadas de cada cidade que sediou as olimpíadas. Para isso usaremos outra base de dados do conjunto.  
+Disponível em: <https://basedosdados.org/dataset/62f8cb83-ac37-48be-874b-b94dd92d3e2b?table=567b1ccd-d8c2-4616-bacb-cf5c0e7b8d89>
+
+```{r}
+dados_latlong <- read.csv("Dados/world_olympedia_olympics_game.csv") %>% 
+  filter(edition != "1906 Intercalated") %>% 
+  mutate(edicao_id = edition_id,
+         ano = as.numeric(str_extract(edition, "\\d{4}")),
+         estacao = case_when(str_detect(edition, "Summer") ~ "Verão",
+                             str_detect(edition, "Equestrian") ~ "Verão",
+                             str_detect(edition, "Winter") ~ "Inverno"),
+         cidade = case_when(city == "Milano-Cortina d'Ampezzo" ~ "Cortina d'Ampezzo",
+                          TRUE ~ city),
+         pais_sg = country_noc,
+         bandeira_url = country_flag_url) %>% 
+  geocode(city = cidade, method = 'osm', lat = latitude , long = longitude) %>% 
+  left_join(siglas_convercao, by = "pais_sg") %>% 
+  select(edicao_id, ano, estacao, cidade, pais_sg, pais, bandeira_url, latitude, longitude)
+```
+
+Vamos criar algumas paletas de cores baseadas em cartazes e ilustrações de diferentes olimpíadas ao longo do tempo:
+
+```{r}
+paleta1 <- c("#07598C", "#F2A413", "#A63B32", "#BF491F", "#F0EADC") # França Inverno 1924
+
+paleta2 <- c("#012340", "#025E73", "#D9A404", "#D97904", "#D9C5A0") # França Inverno 1924
+
+paleta3 <- c("#3E4649", "#7897BF", "#A6294B", "#D9593D", "#F2EFDF") # França Inverno 1924
+
+paleta4 <- c("#3285A6", "#4694A6", "#D97904", "#D96704", "#A60D0D") # França Inverno 1924
+
+paleta5 <- c("#BF0B1A", "#EEC50B", "#065473", "#157A74", "#F1F3E5") # Suiça Inverno 1928
+
+paleta6 <- c("#0E4459", "#1F6373", "#E09714", "#BF1717", "#F2E5D5") # EUA Verão 1932
+
+paleta7 <- c("#040B11", "#2D2273", "#F2D544", "#D91111", "#F2E8DC") # Alemanha Inverno 1936
+
+paleta8 <- c("#001D2D", "#037F8C", "#F2C335", "#BF3C1F", "#D9C6B0") # Itália Inverno 1956
+
+paleta9 <- c("#0D0F1B", "#263F8C", "#F2CE1B", "#D92211", "#F2F0EB") # Itália Inverno 1956
+
+paleta10 <- c("#2C2C24", "#0367A6", "#0378A6", "#D91E0D", "#F2F2EB") # Canadá Verão 1976
+
+paleta11 <- c("#0477BF", "#1AA3D9", "#F2F2EB", "#F2CE16", "#F29F05") # Canadá Verão 1976
 ```
