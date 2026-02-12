@@ -5,7 +5,7 @@ output: html_notebook
 
 Bibliotecas utilizadas
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(janitor)
 ```
@@ -96,18 +96,23 @@ dados_participacoes <- dados_participacoes %>%
                              labels = c("Ouro", "Prata", "Bronze")))
 ```
 
-Para adicionar o nome dos países em português, vamos usar uma tabela de converção segundo os padrões do COI. A tabela foi elaborada por mim com dados disponíveis online em: <https://pt.wikipedia.org/wiki/Lista_de_pa%C3%ADses_por_c%C3%B3digo_do_COI>.
+Para adicionar o nome dos países vamos utilizar outra base de dados do mesmo grupo das duas primeiras.  
+Disponível em: <https://basedosdados.org/dataset/62f8cb83-ac37-48be-874b-b94dd92d3e2b?table=567b1ccd-d8c2-4616-bacb-cf5c0e7b8d89>
 
 ```{r}
-# Traduções por Sigla
-siglas_convercao <- read.csv("siglas_grupos_coi.csv")
+# Nomes por sigla
+siglas_convercao <- read.csv("Dados/world_olympedia_olympics_country.csv") %>% 
+  transmute(pais_sg = noc,
+            pais = name) %>% 
+  # Silga "ROC" duplicada no dataframe
+  filter(!(pais == "ROC"))
 
 dados_participacoes <- dados_participacoes %>%
   left_join(siglas_convercao, by = "pais_sg")
 
 rm(siglas_convercao)
 ```
-
+ 
 Agora os dados estão tratados e podem ser utilizados para nossa análise.
 
 Exemplo: Quadro de medalhas por atleta.
