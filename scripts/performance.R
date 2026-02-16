@@ -6,6 +6,32 @@ library(countrycode)
 
 game_medal_tally <- read_csv("data/raw/game_medal_tally.csv.gz")
 game <- read_csv("data/raw/game.csv.gz")
+athlete_event_result <- read_csv("data/raw/athlete_event_result.csv.gz")
+
+athlete_count <- athlete_event_result |>
+  mutate(
+    year = as.integer(str_extract(edition, "^\\d{4}")),
+    edition_id = replace(edition_id, edition_id == 48, 14),
+    edition = case_when(
+      str_detect(edition, "Summer") ~ "Olimpíadas de Verão",
+      str_detect(edition, "Equestrian") ~ "Olimpíadas de Verão",
+      str_detect(edition, "Winter") ~ "Olimpíadas de Inverno",
+      TRUE                          ~ "other"
+    )
+  ) |>
+  filter(year != 1906) |>
+  select(
+    edition_id,
+    country_noc,
+    athlete_id,
+    medal
+  ) |>
+  group_by(edition_id, country_noc) |>
+  summarise(
+    n_athletes = n_distinct(athlete_id),
+    n_medalists = n_distinct(athlete_id[!is.na(medal)]),
+    .groups = "drop"
+  )
 
 # Main table
 medals_per_country_per_edition <- game_medal_tally |> 
@@ -65,7 +91,8 @@ medals_per_country_per_edition <- game_medal_tally |>
   mutate(
     medal_rate = total / sum(total)
   ) |>
-  ungroup()
+  ungroup() |>
+  left_join(athlete_count, by = c("edition_id", "country_noc"))
 
 # Secondary table
 score_cum <- medals_per_country_per_edition |>
@@ -354,7 +381,7 @@ mean_score_brasil <- medals_per_country_per_edition |>
   theme_olympics()
 plot(mean_score_brasil)
 
-# IDEA: Score by year (bubble size = number of athletes)
+# Score by year (bubble size = number of athletes)
 score_athletes <- medals_per_country_per_edition |>
   filter(country_noc == "BRA") |>
   mutate(
@@ -369,12 +396,12 @@ score_athletes <- medals_per_country_per_edition |>
       x = year, 
       y = score_total, 
       color = is_host,
-      size = total # Change by number of atheletes
+      size = n_athletes
     )
   ) +
   geom_point(alpha = 0.6, stroke = 1.2) +
   scale_color_manual(values = host_palette, name = NULL) +
-  scale_size_continuous(range = c(2, 8)) +
+  scale_size_continuous(range = c(2, 12)) +
   labs(
     title = "Score brasileiro por edição nos jogos de verão",
     subtitle = "Tamanho do ponto representa o número de atletas medalhistas",
@@ -433,7 +460,7 @@ medal_rate_brasil <- medals_per_country_per_edition |>
   theme_olympics()
 plot(medal_rate_brasil)
 
-# IDEA: Medal rate by year (bubble size = number of athletes)
+# Medal rate by year (bubble size = number of athletes)
 medal_rate_athletes <- medals_per_country_per_edition |>
   filter(country_noc == "BRA") |>
   mutate(
@@ -448,12 +475,12 @@ medal_rate_athletes <- medals_per_country_per_edition |>
       x = year, 
       y = medal_rate, 
       color = is_host,
-      size = total # Change by number of atheletes
+      size = n_athletes
     )
   ) +
   geom_point(alpha = 0.6, stroke = 1.2) +
   scale_color_manual(values = host_palette, name = NULL) +
-  scale_size_continuous(range = c(2, 8)) +
+  scale_size_continuous(range = c(2, 12)) +
   labs(
     title = "Medal rate brasileiro por edição nos jogos de verão",
     subtitle = "Tamanho do ponto representa o número de atletas medalhistas",
@@ -493,4 +520,3 @@ g4 <- medals_per_country_per_edition |>
   )
 plot(g4)
 
-# Dividir score pelo número de ocorrências
