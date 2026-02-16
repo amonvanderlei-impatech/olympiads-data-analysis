@@ -91,6 +91,52 @@ score_cum <- medals_per_country_per_edition |>
     )
   )
 
+# Palettes and theme
+pal_continent <- c(
+  "Africa"   = "#E69F00",
+  "Americas" = "#CC79A7",
+  "Asia"     = "#009E73",
+  "Europe"   = "#0072B2",
+  "Oceania"  = "#56B4E9"
+)
+
+lab_continent <- c(
+  "Africa"   = "África",
+  "Americas" = "América",
+  "Asia"     = "Ásia",
+  "Europe"   = "Europa",
+  "Oceania"  = "Oceania"
+)
+
+scale_color_continent <- function(...) {
+  scale_color_manual(
+    name   = "Continente",
+    values = pal_continent,
+    labels = lab_continent,
+    ...
+  )
+}
+
+theme_olympics <- function() {
+  theme_minimal(base_size = 12) +
+    theme(
+      plot.margin = margin(
+        t = 10,
+        r = 15,
+        b = 10,
+        l = 15
+      ),
+      plot.title = element_text(face = "bold", size = 16),
+      plot.subtitle = element_text(size = 12, margin = margin(b = 8)),
+      plot.caption = element_text(size = 9, color = "gray20"),
+      strip.text = element_text(face = "bold", size = 11),
+      strip.background = element_rect(fill = "gray90", color = NA),
+      panel.grid.minor = element_blank(),
+      panel.grid.major.x = element_blank(),
+      panel.grid.major.y = element_line(color = "gray85")
+    )
+}
+
 # PLOT ACCUMULATED SCORE
 huge_score <- score_cum |>
   group_by(country_noc, edition) |>
@@ -103,23 +149,7 @@ score_by_continent <- ggplot(
     aes(x = year, y = score, color = continent, group = country_noc)
   ) +
   geom_line(size = 0.8, alpha = 0.4) +
-  scale_color_manual(
-    name = "Continente",
-    values = c(
-      "Africa"   = "#E69F00",
-      "Americas" = "#CC79A7",
-      "Asia"     = "#009E73",
-      "Europe"   = "#0072B2",
-      "Oceania"  = "#56B4E9"
-    ),
-    labels = c(
-      "Africa"   = "África",
-      "Americas" = "América",
-      "Asia"     = "Ásia",
-      "Europe"   = "Europa",
-      "Oceania"  = "Oceania"
-    )
-  ) +
+  scale_color_continent() +
   geom_point(
     data = huge_score,
     size = 2,
@@ -140,22 +170,7 @@ score_by_continent <- ggplot(
     y = "Score acumulado",
     caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
   ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    plot.margin = margin(
-      t = 10,
-      r = 15,
-      b = 10,
-      l = 15
-    ),
-    plot.title = element_text(face = "bold", size = 16),
-    plot.caption = element_text(size = 9, color = "gray20"),
-    strip.text = element_text(face = "bold", size = 11),
-    strip.background = element_rect(fill = "gray90", color = NA),
-    panel.grid.minor = element_blank(),
-    panel.grid.major.x = element_blank(),
-    panel.grid.major.y = element_line(color = "gray85")
-  )
+  theme_olympics()
 plot(score_by_continent)
 
 # Top 3 by continent
@@ -180,7 +195,8 @@ labels_data <- top_by_continent |>
   mutate(
     group_id = cur_group_id(),
     n = n(),
-    label_position = round(n * (0.1 + 0.2 * (group_id %% 3)))
+    label_position = round(n * (0.1 + 0.2 * (group_id %% 3))),
+    continent = continent
   ) |>
   filter(row_number() == label_position) |>
   ungroup()
@@ -190,26 +206,10 @@ top_score_by_continent <- ggplot(
   aes(x = year, y = score, color = continent, group = country_noc)
 ) +
   geom_line(size = 0.8, alpha = 0.4) +
-  scale_color_manual(
-    name = "Continente",
-    values = c(
-      "Africa"   = "#E69F00",
-      "Americas" = "#CC79A7",
-      "Asia"     = "#009E73",
-      "Europe"   = "#0072B2",
-      "Oceania"  = "#56B4E9"
-    ),
-    labels = c(
-      "Africa"   = "África",
-      "Americas" = "América",
-      "Asia"     = "Ásia",
-      "Europe"   = "Europa",
-      "Oceania"  = "Oceania"
-    )
-  ) +
+  scale_color_continent() +
   geom_text_repel(
     data = labels_data,
-    aes(label = country_noc),
+    aes(label = country_noc, color = continent),
     size = 3,
     show.legend = FALSE
   ) +
@@ -221,23 +221,7 @@ top_score_by_continent <- ggplot(
     y = "Score acumulado",
     caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
   ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    plot.margin = margin(
-      t = 10,
-      r = 15,
-      b = 10,
-      l = 15
-    ),
-    plot.title = element_text(face = "bold", size = 16),
-    plot.subtitle = element_text(size = 12, margin = margin(b = 8)),
-    plot.caption = element_text(size = 9, color = "gray20"),
-    strip.text = element_text(face = "bold", size = 11),
-    strip.background = element_rect(fill = "gray90", color = NA),
-    panel.grid.minor = element_blank(),
-    panel.grid.major.x = element_blank(),
-    panel.grid.major.y = element_line(color = "gray85")
-  )
+  theme_olympics()
 plot(top_score_by_continent)
 
 # Americas
@@ -277,23 +261,7 @@ score_america <- ggplot(
     y = "Score acumulado",
     caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
   ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    plot.margin = margin(
-      t = 10,
-      r = 15,
-      b = 10,
-      l = 15
-    ),
-    plot.title = element_text(face = "bold", size = 16),
-    plot.subtitle = element_text(size = 12, margin = margin(b = 8)),
-    plot.caption = element_text(size = 9, color = "gray20"),
-    strip.text = element_text(face = "bold", size = 11),
-    strip.background = element_rect(fill = "gray90", color = NA),
-    panel.grid.minor = element_blank(),
-    panel.grid.major.x = element_blank(),
-    panel.grid.major.y = element_line(color = "gray85")
-  )
+  theme_olympics()
 plot(score_america)
 
 # Americas (Highlight Brasil)
@@ -315,7 +283,7 @@ score_america_brasil <- ggplot(
   geom_line(size = 0.8, show.legend = FALSE) +
   geom_text_repel(
     data = labels_data,
-    aes(label = country_noc),
+    aes(label = country_noc, color = country_noc),
     size = 3,
     fontface = "bold",
     show.legend = FALSE
@@ -328,45 +296,19 @@ score_america_brasil <- ggplot(
     y = "Score acumulado",
     caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
   ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    plot.margin = margin(
-      t = 10,
-      r = 15,
-      b = 10,
-      l = 15
-    ),
-    plot.title = element_text(face = "bold", size = 16),
-    plot.subtitle = element_text(size = 12, margin = margin(b = 8)),
-    plot.caption = element_text(size = 9, color = "gray20"),
-    strip.text = element_text(face = "bold", size = 11),
-    strip.background = element_rect(fill = "gray90", color = NA),
-    panel.grid.minor = element_blank(),
-    panel.grid.major.x = element_blank(),
-    panel.grid.major.y = element_line(color = "gray85")
-  )
+  theme_olympics()
 plot(score_america_brasil)
 
-# GARBAGE
+# PLOT SCORE
 host_palette <- c(
   "Sede" = "#1f78b4",
   "Não sede" = "#bdbdbd"
 )
 
-# PLOT MEAN SCORE
-performances <- medals_per_country_per_edition |>
-  group_by(country_noc, edition, is_host) |>
-  summarise(
-    score_total = sum(score_total),
-    mean_medal_rate = mean(medal_rate)
-  )
+# Pode estar associado à escolha do país sede (São escolhidos países tradicionais?)
+# Também pode ser atrelado à quantidade de atletas
 
-g2 <- performances |>
-  group_by(edition, is_host) |>
-  summarise(
-    mean_score = mean(score_total),
-    .groups = "drop"
-  ) |> 
+score_by_country <- medals_per_country_per_edition |>
   mutate(
     is_host = factor(
       is_host,
@@ -374,32 +316,23 @@ g2 <- performances |>
       labels = c("Sede", "Não sede")
     )
   ) |>
-  ggplot(aes(x = is_host, y = mean_score, fill = is_host)) +
-  geom_col(show.legend = FALSE) +
-  geom_text(
-    aes(label = round(mean_score, 1)),
-    vjust = -0.5,
-    size = 4
-  ) +
-  facet_wrap(~ edition) +
+  ggplot(aes(x = is_host, y = score_total, fill = is_host)) +
+  geom_boxplot(alpha = 0.8, width = 0.6, show.legend = FALSE) +
+  facet_wrap(~ edition, scales = "free") +
   scale_fill_manual(values = host_palette) +
   labs(
-    title = "Score médio por país",
+    title = "Score por país",
     subtitle = "Comparação entre países sede e não sede",
     x = NULL,
-    y = "Score médio"
+    y = "Score",
+    caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
   ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    strip.text = element_text(face = "bold"),
-    plot.title = element_text(face = "bold"),
-    panel.grid.major.x = element_blank()
-  )
-# Pode estar associado à escolha do país sede (São escolhidos países tradicionais?)
-plot(g2)
+  theme_olympics()
+plot(score_by_country)
 
-# Plot Mean Medal Rate
-g3 <- performances |>
+# Brazilian Mean Score
+mean_score_brasil <- medals_per_country_per_edition |>
+  filter(country_noc == "BRA") |>
   mutate(
     is_host = factor(
       is_host,
@@ -407,26 +340,134 @@ g3 <- performances |>
       labels = c("Sede", "Não sede")
     )
   ) |>
-  ggplot(aes(x = is_host, y = mean_medal_rate, fill = is_host)) +
+  ggplot(aes(x = is_host, y = score_total, fill = is_host)) +
   geom_boxplot(alpha = 0.8, width = 0.6, show.legend = FALSE) +
-  facet_wrap(~ edition) +
+  facet_wrap(~ edition, scales = "free") +
   scale_fill_manual(values = host_palette) +
   labs(
-    title = "Medal rate médio por país",
-    subtitle = "Distribuição entre países sede e não sede",
+    title = "Score do Brasil por edição",
+    subtitle = "Comparação entre anos como sede e não sede",
     x = NULL,
-    y = "Medal rate médio"
+    y = "Score",
+    caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
   ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    strip.text = element_text(face = "bold"),
-    plot.title = element_text(face = "bold"),
-    panel.grid.major.x = element_blank()
-  )
-plot(g3)
+  theme_olympics()
+plot(mean_score_brasil)
 
+# IDEA: Score by year (bubble size = number of athletes)
+score_athletes <- medals_per_country_per_edition |>
+  filter(country_noc == "BRA") |>
+  mutate(
+    is_host = factor(
+      is_host,
+      levels = c(TRUE, FALSE),
+      labels = c("Sede", "Não sede")
+    )
+  ) |>
+  ggplot(
+    aes(
+      x = year, 
+      y = score_total, 
+      color = is_host,
+      size = total # Change by number of atheletes
+    )
+  ) +
+  geom_point(alpha = 0.6, stroke = 1.2) +
+  scale_color_manual(values = host_palette, name = NULL) +
+  scale_size_continuous(range = c(2, 8)) +
+  labs(
+    title = "Score brasileiro por edição nos jogos de verão",
+    subtitle = "Tamanho do ponto representa o número de atletas medalhistas",
+    x = NULL,
+    y = "Score",
+    caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
+  ) +
+  guides(size = "none") +
+  theme_olympics()
+plot(score_athletes)
 
-# Plot Medal Rate Distribution
+# PLOT MEDAL RATE
+medal_rate_by_country <- medals_per_country_per_edition |>
+  mutate(
+    is_host = factor(
+      is_host,
+      levels = c(TRUE, FALSE),
+      labels = c("Sede", "Não sede")
+    )
+  ) |>
+  ggplot(aes(x = is_host, y = medal_rate, fill = is_host)) +
+  geom_boxplot(alpha = 0.8, width = 0.6, show.legend = FALSE) +
+  facet_wrap(~ edition, scales = "free") +
+  scale_fill_manual(values = host_palette) +
+  labs(
+    title = "Medal rate por país",
+    subtitle = "Comparação entre países sede e não sede",
+    x = NULL,
+    y = "Medal rate",
+    caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
+  ) +
+  theme_olympics()
+plot(medal_rate_by_country)
+
+# Brazilian Medal Rate
+medal_rate_brasil <- medals_per_country_per_edition |>
+  filter(country_noc == "BRA") |>
+  mutate(
+    is_host = factor(
+      is_host,
+      levels = c(TRUE, FALSE),
+      labels = c("Sede", "Não sede")
+    )
+  ) |>
+  ggplot(aes(x = is_host, y = medal_rate, fill = is_host)) +
+  geom_boxplot(alpha = 0.8, width = 0.6, show.legend = FALSE) +
+  facet_wrap(~ edition, scales = "free") +
+  scale_fill_manual(values = host_palette) +
+  labs(
+    title = "Medal rate brasileiro por edição",
+    subtitle = "Comparação entre anos como sede e não sede",
+    x = NULL,
+    y = "Medal rate",
+    caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
+  ) +
+  theme_olympics()
+plot(medal_rate_brasil)
+
+# IDEA: Medal rate by year (bubble size = number of athletes)
+medal_rate_athletes <- medals_per_country_per_edition |>
+  filter(country_noc == "BRA") |>
+  mutate(
+    is_host = factor(
+      is_host,
+      levels = c(TRUE, FALSE),
+      labels = c("Sede", "Não sede")
+    )
+  ) |>
+  ggplot(
+    aes(
+      x = year, 
+      y = medal_rate, 
+      color = is_host,
+      size = total # Change by number of atheletes
+    )
+  ) +
+  geom_point(alpha = 0.6, stroke = 1.2) +
+  scale_color_manual(values = host_palette, name = NULL) +
+  scale_size_continuous(range = c(2, 8)) +
+  labs(
+    title = "Medal rate brasileiro por edição nos jogos de verão",
+    subtitle = "Tamanho do ponto representa o número de atletas medalhistas",
+    x = NULL,
+    y = "Medal rate",
+    caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
+  ) +
+  guides(size = "none") +
+  theme_olympics()
+plot(medal_rate_athletes)
+
+# GARBAGE
+
+# Can be used?
 g4 <- medals_per_country_per_edition |>
   mutate(
     is_host = factor(
@@ -452,69 +493,4 @@ g4 <- medals_per_country_per_edition |>
   )
 plot(g4)
 
-# Plot Brazilian Score
-g5 <- performances |>
-  filter(country_noc == "BRA") |>
-  group_by(edition, is_host) |>
-  summarise(
-    mean_score = mean(score_total),
-    .groups = "drop"
-  ) |>
-  mutate(
-    is_host = factor(
-      is_host,
-      levels = c(TRUE, FALSE),
-      labels = c("Sede", "Não sede")
-    )
-  ) |>
-  ggplot(aes(x = is_host, y = mean_score, fill = is_host)) +
-  geom_col(width = 0.6, show.legend = FALSE) +
-  geom_text(
-    aes(label = round(mean_score, 1)),
-    vjust = -0.5,
-    size = 4
-  ) +
-  facet_wrap(~ edition) +
-  scale_fill_manual(values = host_palette) +
-  labs(
-    title = "Score médio do Brasil por edição",
-    subtitle = "Comparação entre anos como sede e não sede",
-    x = NULL,
-    y = "Score médio"
-  ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    strip.text = element_text(face = "bold"),
-    plot.title = element_text(face = "bold"),
-    panel.grid.major.x = element_blank()
-  )
-plot(g5)
-
-# Plot Brazilian Medal Rate
-g6 <- medals_per_country_per_edition |>
-  filter(country_noc == "BRA") |>
-  mutate(
-    is_host = factor(
-      is_host,
-      levels = c(TRUE, FALSE),
-      labels = c("Sede", "Não sede")
-    )
-  ) |>
-  ggplot(aes(x = year, y = medal_rate, color = is_host)) +
-  geom_point(size = 2, alpha = 0.8) +
-  geom_line(size = 2, alpha = 0.8) +
-  facet_wrap(~ edition) +
-  scale_color_manual(values = host_palette) +
-  labs(
-    title = "Medal rate do Brasil ao longo do tempo",
-    subtitle = "Comparação entre edições como sede e não sede",
-    x = "Ano",
-    y = "Medal rate"
-  ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    strip.text = element_text(face = "bold"),
-    plot.title = element_text(face = "bold")
-  )
-plot(g6)
-
+# Dividir score pelo número de ocorrências
