@@ -1,0 +1,141 @@
+---
+title: "Análise dos Jogos Olímpicos Modernos"
+output: html_document
+---
+
+## AV2 - Introdução à Ciência de Dados
+#### Amon Chalegre Gomes Vanderlei e Pedro Paulo Gomes Paiva
+
+### INTRODUÇÃO
+
+Os Jogos Olímpicos representam um dos maiores eventos esportivos do mundo, reunindo países de diferentes continentes. Neste trabalho, buscaremos explorar duas frentes complementares. Primeiro, analisaremos aspectos gerais das Olimpíadas, apresentando um panorama histórico e descritivo dos Jogos Olímpicos Modernos. Em seguida, aprofundaremos a análise na pergunta: "Qual é o impacto de sediar os Jogos Olímpicos sobre o desempenho de um país?".
+
+Para responder a questão, utilizaremos duas métricas para comparar o desempenho médio das nações quando atuam como anfitriãs e o desempenho médio quando competem como visitantes. A partir dessas medidas, buscaremos identificar a existência de um "efeito sede" e comparar o desempenho do Brasil com a performance geral.
+
+### BASE DE DADOS
+
+Os dados utilizados neste trabalho foram obtidos a partir do repositório [*Historical Data from the Olympics*](https://basedosdados.org/dataset/62f8cb83-ac37-48be-874b-b94dd92d3e2b), disponível na plataforma Base dos Dados. O conjunto é uma tentativa de criar uma base de dados atualizada com informações sobre os Jogos Olímpicos. A partir dessas bases, realizamos etapas de limpeza, padronização e agregação das informações, construindo métricas próprias para avaliar o desempenho médio dos países como sede e como não sede.
+
+As análises foram conduzidas utilizando a linguagem R e as seguintes bibliotecas:
+
+```{r, message=FALSE, warning=FALSE}
+# install.packages(c("tidyverse", "ggrepel", "countrycode", "gt", "sf", "rnaturalearth", "rnaturalearthdata", "tidygeocoder"))
+
+library(tidyverse)
+library(ggrepel)
+library(countrycode)
+library(gt)
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(tidygeocoder)
+```
+
+As seguintes bases serão utilizadas ao longo da análise:
+
+```{r, message=FALSE, warning=FALSE}
+game <- read_csv("../data/raw/game.csv.gz")
+country <- read.csv("../data/raw/country.csv.gz")
+athlete_bio <- read.csv("../data/raw/athlete_bio.csv.gz")
+game_medal_tally <- read_csv("../data/raw/game_medal_tally.csv.gz")
+athlete_event_result <- read_csv("../data/raw/athlete_event_result.csv.gz")
+```
+
+#### LIMPEZA DOS DADOS
+
+<!-- Utilizar as bases anteriores pra fazer limpezas gerais, ou seja, que serão utilizadas por ambos -->
+
+### ANÁLISE GERAL
+
+<!-- Análise geral, resultados e breve discussão -->
+
+### IMPACTO DE SEDIAR OS JOGOS SOBRE O DESEMPENHO
+
+<!-- Métricas, resultados e breve discussão -->
+
+### CONCLUSÃO E OBSERVAÇÕES
+
+<!-- Conclusão de ambas as partes -->
+
+Github: https://github.com/amonvanderlei-impatech/olympiads-data-analysis
+
+### AGRADECIMENTOS
+
+<!-- Escrever -->
+
+### REFERÊNCIAS
+
+BASE DOS DADOS. *Historical Data from the Olympics*. Disponível em: https://basedosdados.org/dataset/62f8cb83-ac37-48be-874b-b94dd92d3e2b.
+
+FLOURISH. *How to visualize the Olympics*. Disponível em: https://flourish.studio/blog/visualizing-olympics/.
+
+FLOWINGDATA. *History of Sumo Charted*. Disponível em: https://flowingdata.com/2016/05/16/history-of-sumo-charted/.
+
+OLYMPEDIA. *Olympedia*. Disponível em: https://www.olympedia.org/.
+
+SCIELO. *Visual abstracts*. Disponível em: https://www.scielo.br/j/jbn/a/4kqVkwSqkgFTbdC9VgThvnP/?format=pdf&lang=pt.
+
+THE OLYMPIC DESIGN. *Olympic Games – The Design*. Disponível em: https://www.theolympicdesign.com/.
+
+### APÊNDICE - VARIÁVEIS E FUNÇÕES AUXILIARES
+
+```{r}
+# Paletas
+winter_france_1924_palette <- list(
+  primary = c("#07598C", "#F2A413", "#A63B32", "#BF491F", "#F0EADC"),
+  secondary = c("#012340", "#025E73", "#D9A404", "#D97904", "#D9C5A0"),
+  tertiary = c("#3E4649", "#7897BF", "#A6294B", "#D9593D", "#F2EFDF"),
+  quaternary = c("#3285A6", "#4694A6", "#D97904", "#D96704", "#A60D0D")
+)
+
+winter_swiss_1928_palette <- list(
+  primary = c("#BF0B1A", "#EEC50B", "#065473", "#157A74", "#F1F3E5")
+)
+
+summer_usa_1932_palette <- list(
+  primary = c("#0E4459", "#1F6373", "#E09714", "#BF1717", "#F2E5D5")
+)
+
+winter_germany_1936_palette <- list(
+  primary = c("#040B11", "#2D2273", "#F2D544", "#D91111", "#F2E8DC")
+)
+
+winter_italy_1956_palette <- list(
+  primary = c("#001D2D", "#037F8C", "#F2C335", "#BF3C1F", "#D9C6B0"),
+  secondary = c("#0D0F1B", "#263F8C", "#F2CE1B", "#D92211", "#F2F0EB")
+)
+
+summer_canada_1976_palette <- list(
+  primary = c("#2C2C24", "#0367A6", "#0378A6", "#D91E0D", "#F2F2EB"),
+  secondary = c("#0477BF", "#1AA3D9", "#F2F2EB", "#F2CE16", "#F29F05")
+)
+
+summer_brasil_2016_palette <- list(
+  primary = c("#03588C", "#7ABF49", "#F2B90C", "#F26E22", "#F2F2F2")
+)
+
+# Usage: palette$primary[1])
+
+theme_olympics <- function(pallete) {
+  theme_minimal(base_size = 12) +
+    theme(
+      plot.margin = margin(
+        t = 10,
+        r = 15,
+        b = 10,
+        l = 15
+      ),
+      plot.title = element_text(face = "bold", size = 16),
+      plot.subtitle = element_text(face = "italic", size = 12, margin = margin(b = 8)),
+      plot.caption = element_text(size = 9, color = "gray10"),
+      strip.text = element_text(face = "bold", size = 11),
+      strip.background = element_rect(fill = "gray90", color = NA),
+      axis.title = element_text(face = "bold", size = 10),
+      axis.text.y = element_text(face = "bold.italic"),
+      panel.grid.minor = element_blank(),
+      panel.grid.major.x = element_blank(),
+      panel.grid.major.y = element_line(color = "gray85")
+    )
+}
+```
+

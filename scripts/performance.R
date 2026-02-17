@@ -334,6 +334,21 @@ host_palette <- c(
 
 # Pode estar associado à escolha do país sede (São escolhidos países tradicionais?)
 # Também pode ser atrelado à quantidade de atletas
+mean_brasil <- medals_per_country_per_edition |>
+  filter(country_noc == "BRA") |>
+  group_by(edition, is_host) |>
+  summarise(
+    mean_score = mean(score_total),
+    mean_medal_rate = mean(medal_rate),
+    .groups = "drop"
+  ) |>
+  mutate(
+    is_host = factor(
+      is_host,
+      levels = c(TRUE, FALSE),
+      labels = c("Sede", "Não sede")
+    )
+  )
 
 score_by_country <- medals_per_country_per_edition |>
   mutate(
@@ -345,11 +360,20 @@ score_by_country <- medals_per_country_per_edition |>
   ) |>
   ggplot(aes(x = is_host, y = score_total, fill = is_host)) +
   geom_boxplot(alpha = 0.8, width = 0.6, show.legend = FALSE) +
+  geom_point(
+    data = mean_brasil,
+    aes(x = is_host, y = mean_score),
+    shape = 23,
+    size = 2,
+    stroke = 0.8,
+    color = "black",
+    fill = "yellow"
+  ) +
   facet_wrap(~ edition, scales = "free") +
   scale_fill_manual(values = host_palette) +
   labs(
     title = "Score por país",
-    subtitle = "Comparação entre países sede e não sede",
+    subtitle = "Brasil destacado",
     x = NULL,
     y = "Score",
     caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
@@ -357,9 +381,8 @@ score_by_country <- medals_per_country_per_edition |>
   theme_olympics()
 plot(score_by_country)
 
-# Brazilian Mean Score
-mean_score_brasil <- medals_per_country_per_edition |>
-  filter(country_noc == "BRA") |>
+# PLOT MEDAL RATE
+medal_rate_by_country <- medals_per_country_per_edition |>
   mutate(
     is_host = factor(
       is_host,
@@ -367,19 +390,28 @@ mean_score_brasil <- medals_per_country_per_edition |>
       labels = c("Sede", "Não sede")
     )
   ) |>
-  ggplot(aes(x = is_host, y = score_total, fill = is_host)) +
+  ggplot(aes(x = is_host, y = medal_rate, fill = is_host)) +
   geom_boxplot(alpha = 0.8, width = 0.6, show.legend = FALSE) +
+  geom_point(
+    data = mean_brasil,
+    aes(x = is_host, y = mean_medal_rate),
+    shape = 23,
+    size = 2,
+    stroke = 0.8,
+    color = "black",
+    fill = "yellow"
+  ) +
   facet_wrap(~ edition, scales = "free") +
   scale_fill_manual(values = host_palette) +
   labs(
-    title = "Score do Brasil por edição",
-    subtitle = "Comparação entre anos como sede e não sede",
+    title = "Medal rate por país",
+    subtitle = "Comparação entre países sede e não sede",
     x = NULL,
-    y = "Score",
+    y = "Medal rate",
     caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
   ) +
   theme_olympics()
-plot(mean_score_brasil)
+plot(medal_rate_by_country)
 
 # Score by year (bubble size = number of athletes)
 score_athletes <- medals_per_country_per_edition |>
@@ -413,53 +445,6 @@ score_athletes <- medals_per_country_per_edition |>
   theme_olympics()
 plot(score_athletes)
 
-# PLOT MEDAL RATE
-medal_rate_by_country <- medals_per_country_per_edition |>
-  mutate(
-    is_host = factor(
-      is_host,
-      levels = c(TRUE, FALSE),
-      labels = c("Sede", "Não sede")
-    )
-  ) |>
-  ggplot(aes(x = is_host, y = medal_rate, fill = is_host)) +
-  geom_boxplot(alpha = 0.8, width = 0.6, show.legend = FALSE) +
-  facet_wrap(~ edition, scales = "free") +
-  scale_fill_manual(values = host_palette) +
-  labs(
-    title = "Medal rate por país",
-    subtitle = "Comparação entre países sede e não sede",
-    x = NULL,
-    y = "Medal rate",
-    caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
-  ) +
-  theme_olympics()
-plot(medal_rate_by_country)
-
-# Brazilian Medal Rate
-medal_rate_brasil <- medals_per_country_per_edition |>
-  filter(country_noc == "BRA") |>
-  mutate(
-    is_host = factor(
-      is_host,
-      levels = c(TRUE, FALSE),
-      labels = c("Sede", "Não sede")
-    )
-  ) |>
-  ggplot(aes(x = is_host, y = medal_rate, fill = is_host)) +
-  geom_boxplot(alpha = 0.8, width = 0.6, show.legend = FALSE) +
-  facet_wrap(~ edition, scales = "free") +
-  scale_fill_manual(values = host_palette) +
-  labs(
-    title = "Medal rate brasileiro por edição",
-    subtitle = "Comparação entre anos como sede e não sede",
-    x = NULL,
-    y = "Medal rate",
-    caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
-  ) +
-  theme_olympics()
-plot(medal_rate_brasil)
-
 # Medal rate by year (bubble size = number of athletes)
 medal_rate_athletes <- medals_per_country_per_edition |>
   filter(country_noc == "BRA") |>
@@ -492,31 +477,112 @@ medal_rate_athletes <- medals_per_country_per_edition |>
   theme_olympics()
 plot(medal_rate_athletes)
 
-# GARBAGE
-
-# Can be used?
-g4 <- medals_per_country_per_edition |>
-  mutate(
-    is_host = factor(
-      is_host,
-      levels = c(TRUE, FALSE),
-      labels = c("Sede", "Não sede")
-    )
+# HOST EFFECT
+# Score
+host_effect_score <- medals_per_country_per_edition |>
+  group_by(country_noc, edition, is_host) |>
+  summarise(
+    mean_score = mean(score_total),
+    .groups = "drop"
   ) |>
-  ggplot(aes(x = year, y = medal_rate, color = is_host)) +
-  geom_point(alpha = 0.6) +
-  facet_wrap(~ edition) +
-  scale_color_manual(values = host_palette) +
-  labs(
-    title = "Medal rate ao longo do tempo",
-    subtitle = "Comparação entre países sede e não sede",
-    x = "Ano",
-    y = "Medal rate"
-  ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    strip.text = element_text(face = "bold"),
-    plot.title = element_text(face = "bold")
-  )
-plot(g4)
+  pivot_wider(
+    names_from = is_host,
+    values_from = mean_score
+  ) |>
+  mutate(
+    host_effect = `TRUE` - `FALSE`,
+    is_brasil = country_noc == "BRA"
+  ) |>
+  filter(!is.na(host_effect))
 
+ggplot(host_effect_score, aes(x = edition, y = host_effect, fill = edition)) +
+  geom_boxplot(alpha = 0.8, width = 0.6, show.legend = FALSE) +
+  geom_point(
+    data = host_effect_score |> filter(country_noc == "BRA"),
+    aes(x = edition, y = host_effect),
+    shape = 23,
+    size = 2,
+    stroke = 0.8,
+    color = "black",
+    fill = "yellow"
+  ) +
+  scale_fill_manual(values = c(
+    "Olimpíadas de Inverno" = "#1f78b4",
+    "Olimpíadas de Verão" = "#bdbdbd"
+  )) +
+  labs(
+    title = "Distribuição do Efeito Sede por País",
+    subtitle = "Diferença média de pontuação - Brasil destacado",
+    x = NULL,
+    y = "Efeito Sede (Score)",
+    caption = "Fonte: Base dos Dados - Historical Data from the Olympics",
+    color = NULL
+  ) +
+  theme_olympics()
+
+# Medal Rate
+host_effect_medal_rate <- medals_per_country_per_edition |>
+  group_by(country_noc, edition, is_host) |>
+  summarise(
+    mean_medal_rate = mean(medal_rate),
+    .groups = "drop"
+  ) |>
+  pivot_wider(
+    names_from = is_host,
+    values_from = mean_medal_rate
+  ) |>
+  mutate(
+    host_effect = `TRUE` - `FALSE`,
+    is_brasil = country_noc == "BRA"
+  ) |>
+  filter(!is.na(host_effect))
+
+ggplot(host_effect_medal_rate, aes(x = edition, y = host_effect, fill = edition)) +
+  geom_boxplot(alpha = 0.8, width = 0.6, show.legend = FALSE) +
+  geom_point(
+    data = host_effect_medal_rate |> filter(country_noc == "BRA"),
+    aes(x = edition, y = host_effect),
+    shape = 23,
+    size = 2,
+    stroke = 0.8,
+    color = "black",
+    fill = "yellow"
+  ) +
+  scale_fill_manual(values = c(
+    "Olimpíadas de Inverno" = "#1f78b4",
+    "Olimpíadas de Verão" = "#bdbdbd"
+  )) +
+  labs(
+    title = "Distribuição do Efeito Sede por País",
+    subtitle = "Diferença média de pontuação - Brasil destacado",
+    x = NULL,
+    y = "Efeito Sede (Medal rate)",
+    caption = "Fonte: Base dos Dados - Historical Data from the Olympics",
+    color = NULL
+  ) +
+  theme_olympics()
+
+# GARBAGE
+least_interval_host <- medals_per_country_per_edition |>
+  filter(is_host == TRUE) |>
+  distinct(country_noc, edition, year) |>
+  arrange(country_noc, edition, year) |>
+  group_by(country_noc, edition) |>
+  summarise(
+    n_host = n(),
+    least_interval = if_else(
+      n() > 1,
+      min(diff(year)),
+      NA_real_
+    ),
+    .groups = "drop"
+  ) |>
+  group_by(edition) |>
+  slice_min(least_interval, n = 1)
+
+# TODO:
+# Comparar desempenho antes, durante e depois buscando um “efeito casa”, ou seja, melhora momentânea após sediar;
+# Divisão em cinco categorias: Antes, 2 antes, durante, 2 depois, depois;
+# Linhas horizontais demarcando a média geral de ser sede e não sede.
+
+# Dá pra tentar inferir o número de medalhas brasileiras nas olimpíadas de 2028?
