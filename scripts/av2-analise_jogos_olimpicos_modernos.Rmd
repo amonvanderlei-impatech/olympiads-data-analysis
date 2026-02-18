@@ -8,9 +8,7 @@ output: html_document
 
 ### INTRODUÇÃO
 
-Os Jogos Olímpicos representam um dos maiores eventos esportivos do mundo, reunindo países de diferentes continentes. Neste trabalho, buscaremos explorar duas frentes complementares. Primeiro, analisaremos aspectos gerais das Olimpíadas, apresentando um panorama histórico e descritivo dos Jogos Olímpicos Modernos. Em seguida, aprofundaremos a análise na pergunta: "Qual é o impacto de sediar os Jogos Olímpicos sobre o desempenho de um país?".
-
-Para responder a questão, utilizaremos duas métricas para comparar o desempenho médio das nações quando atuam como anfitriãs e o desempenho médio quando competem como visitantes. A partir dessas medidas, buscaremos identificar a existência de um "efeito sede" e comparar o desempenho do Brasil com a performance geral.
+Os Jogos Olímpicos representam um dos maiores eventos esportivos do mundo, reunindo países de diferentes continentes. Neste trabalho, buscaremos explorar duas frentes complementares. Primeiro, analisaremos aspectos gerais das Olimpíadas, apresentando um panorama histórico e descritivo dos Jogos Olímpicos Modernos. Em seguida, aprofundaremos a análise na pergunta: "Qual é o impacto de sediar os Jogos Olímpicos sobre o desempenho de um país?". Para responder a questão, utilizaremos duas métricas para comparar o desempenho médio das nações quando atuam como anfitriãs e o desempenho médio quando competem como visitantes. A partir dessas medidas, buscaremos identificar a existência de um "efeito sede" e comparar o desempenho do Brasil com a performance geral.
 
 ### BASE DE DADOS
 
@@ -43,7 +41,93 @@ athlete_event_result <- read_csv("../data/raw/athlete_event_result.csv.gz")
 
 #### LIMPEZA DOS DADOS
 
-<!-- Utilizar as bases anteriores pra fazer limpezas gerais, ou seja, que serão utilizadas por ambos -->
+Antes da construção das métricas e visualizações, foi realizada uma etapa de tratamento e padronização das bases, pois os dados são provenientes de diferentes tabelas. Inicialmente, removemos os Jogos Intercalados de 1906, uma vez que suas premiações não são oficialmente reconhecidas pelo Comitê Olímpico Internacional. Também desconsideramos edições que não foram realizadas e padronizamos a variável edition para distinguir apenas entre Jogos de Verão e Jogos de Inverno. Um ponto específico tratado foi o caso do hipismo em 1956. Embora as provas equestres tenham ocorrido em Estocolmo (Suécia), devido às restrições sanitárias da Austrália, elas foram incorporadas à edição de Melbourne para manter a coerência histórica da sede.
+
+Na base de atletas, selecionamos apenas as variáveis relevantes para a análise e removemos registros duplicados. Consideramos que, em uma mesma edição, um atleta pode participar apenas uma vez de uma determinada prova representando um único país. Quando havia múltiplos registros para a mesma combinação de atleta, edição e evento, mantivemos apenas um, priorizando, quando aplicável, o registro com premiação. Além disso, identificamos seis atletas com informações ausentes de nome e sexo. Esses dados foram completados manualmente a partir do identificador do atleta, utilizando como referência a plataforma [*Olympedia*](https://www.olympedia.org/).
+
+```{r}
+game <- game |> 
+  # Retira as sedes de jogos que não ocorreram ou não são considerados
+  filter(
+    edition != "1906 Intercalated",
+    edition != "1956 Equestrian",
+    is.na(is_held),
+    year <= 2022
+  ) |> 
+  mutate(
+    edition = case_when(
+      str_detect(edition, "Summer") ~ "Olimpíadas de Verão",
+      str_detect(edition, "Winter") ~ "Olimpíadas de Inverno"
+    )
+  ) |>
+  select(edition_id, edition, country_flag_url, city, host_country = country_noc)
+
+country <- country |> 
+  # Retira sigla "ROC" duplicada
+  filter(name != "ROC")
+
+athlete_bio <- athlete_bio |>
+  select(athlete_id, sex, name) |>
+  mutate(athlete_id = as.numeric(athlete_id)) |>
+  # Preenche dados faltantes
+  mutate(
+    name = case_when(
+      athlete_id == 69534 ~ "John Thornton",
+      athlete_id == 36110 ~ "Frank Courtney",
+      athlete_id == 2302137 ~ "Peter Hunter Gaskell",
+      athlete_id == 902283 ~ "Kay Todd, Jr.",
+      athlete_id == 920957 ~ "Hoka Iwabuchi",
+      athlete_id == 37833 ~ "Hans Joachim Hannemann",
+      TRUE ~ name
+    ),
+    sex = case_when(
+      athlete_id %in% c(69534,36110,2302137,902283,920957,37833) ~ "Male",
+      TRUE ~ sex)
+  )
+
+game_medal_tally <- game_medal_tally |>
+  # Atrela o hipismo à sede na Austrália
+  mutate(edition_id = replace(edition_id, edition_id == 48, 14)) |>
+  # Retira os jogos intercalados
+  filter(year != 1906) |>
+  mutate(
+    edition = case_when(
+      str_detect(edition, "Summer") ~ "Olimpíadas de Verão",
+      str_detect(edition, "Equestrian") ~ "Olimpíadas de Verão",
+      str_detect(edition, "Winter") ~ "Olimpíadas de Inverno"
+    )
+  )
+
+athlete_event_result <- athlete_event_result |>
+  mutate(
+    year = as.integer(str_extract(edition, "^\\d{4}")),
+    # Atrela o hipismo à sede na Austrália
+    edition_id = replace(edition_id, edition_id == 48, 14),
+    edition = case_when(
+      str_detect(edition, "Summer") ~ "Olimpíadas de Verão",
+      str_detect(edition, "Equestrian") ~ "Olimpíadas de Verão",
+      str_detect(edition, "Winter") ~ "Olimpíadas de Inverno",
+      TRUE                          ~ "other"
+    ),
+    medal = na_if(medal, "")
+  ) |>
+  # Retira os jogos intercalados
+  filter(year != 1906) |>
+  select(
+    edition_id,
+    edition,
+    country_noc,
+    athlete_id,
+    sport,
+    event,
+    medal
+  ) |>
+  # Remove duplicatas
+  arrange(athlete_id, edition_id, sport, event, medal) |>
+  group_by(athlete_id, edition_id, sport, event) |>
+  slice(1) |>
+  ungroup()
+```
 
 ### ANÁLISE GERAL
 
