@@ -16,7 +16,7 @@ Os dados utilizados neste trabalho foram obtidos a partir do repositório [*Hist
 
 As análises foram conduzidas utilizando a linguagem R e as seguintes bibliotecas:
 
-```{r, message=FALSE, warning=FALSE}
+```{r packages, message=FALSE, warning=FALSE}
 # install.packages(c("tidyverse", "ggrepel", "countrycode", "gt", "sf", "rnaturalearth", "rnaturalearthdata", "tidygeocoder"))
 
 library(tidyverse)
@@ -29,9 +29,69 @@ library(rnaturalearthdata)
 library(tidygeocoder)
 ```
 
+```{r setup_theme, include=FALSE}
+# Paletas
+winter_france_1924_palette <- list(
+  primary = c("#07598C", "#F2A413", "#A63B32", "#BF491F", "#F0EADC"),
+  secondary = c("#012340", "#025E73", "#D9A404", "#D97904", "#D9C5A0"),
+  tertiary = c("#3E4649", "#7897BF", "#A6294B", "#D9593D", "#F2EFDF"),
+  quaternary = c("#3285A6", "#4694A6", "#D97904", "#D96704", "#A60D0D")
+)
+
+winter_swiss_1928_palette <- list(
+  primary = c("#BF0B1A", "#EEC50B", "#065473", "#157A74", "#F1F3E5")
+)
+
+summer_usa_1932_palette <- list(
+  primary = c("#0E4459", "#1F6373", "#E09714", "#BF1717", "#F2E5D5")
+)
+
+winter_germany_1936_palette <- list(
+  primary = c("#040B11", "#2D2273", "#F2D544", "#D91111", "#F2E8DC")
+)
+
+winter_italy_1956_palette <- list(
+  primary = c("#001D2D", "#037F8C", "#F2C335", "#BF3C1F", "#D9C6B0"),
+  secondary = c("#0D0F1B", "#263F8C", "#F2CE1B", "#D92211", "#F2F0EB")
+)
+
+summer_canada_1976_palette <- list(
+  primary = c("#2C2C24", "#0367A6", "#0378A6", "#D91E0D", "#F2F2EB"),
+  secondary = c("#0477BF", "#1AA3D9", "#F2F2EB", "#F2CE16", "#F29F05")
+)
+
+summer_brasil_2016_palette <- list(
+  primary = c("#03588C", "#7ABF49", "#F2B90C", "#F26E22", "#F2F2F2")
+)
+
+# Usage: palette$primary[1])
+
+theme_olympics <- function() {
+  theme_minimal(base_size = 12) +
+    theme(
+      plot.margin = margin(
+        t = 10,
+        r = 15,
+        b = 10,
+        l = 15
+      ),
+      plot.title = element_text(face = "bold", size = 16),
+      plot.subtitle = element_text(face = "italic", size = 12, margin = margin(b = 8)),
+      plot.caption = element_text(size = 9, color = "gray10"),
+      strip.text = element_text(face = "bold", size = 11),
+      strip.background = element_rect(fill = "gray90", color = NA),
+      axis.title = element_text(face = "bold", size = 10),
+      axis.text.y = element_text(face = "italic"),
+      panel.grid.minor = element_blank(),
+      panel.grid.major.x = element_blank(),
+      panel.grid.major.y = element_line(color = "gray85")
+    )
+}
+```
+
 As seguintes bases serão utilizadas ao longo da análise:
 
-```{r, message=FALSE, warning=FALSE}
+```{r datasets, message=FALSE, warning=FALSE}
 game <- read_csv("../data/raw/game.csv.gz")
 country <- read.csv("../data/raw/country.csv.gz")
 athlete_bio <- read.csv("../data/raw/athlete_bio.csv.gz")
@@ -45,7 +105,7 @@ Antes da construção das métricas e visualizações, foi realizada uma etapa d
 
 Na base de atletas, selecionamos apenas as variáveis relevantes para a análise e removemos registros duplicados. Consideramos que, em uma mesma edição, um atleta pode participar apenas uma vez de uma determinada prova representando um único país. Quando havia múltiplos registros para a mesma combinação de atleta, edição e evento, mantivemos apenas um, priorizando, quando aplicável, o registro com premiação. Além disso, identificamos seis atletas com informações ausentes de nome e sexo. Esses dados foram completados manualmente a partir do identificador do atleta, utilizando como referência a plataforma [*Olympedia*](https://www.olympedia.org/).
 
-```{r}
+```{r tidying}
 game <- game |> 
   # Retira as sedes de jogos que não ocorreram ou não são considerados
   filter(
@@ -135,7 +195,318 @@ athlete_event_result <- athlete_event_result |>
 
 ### IMPACTO DE SEDIAR OS JOGOS SOBRE O DESEMPENHO
 
-<!-- Métricas, resultados e breve discussão -->
+Para investigar a existência de um possível efeito sede, construímos duas métricas de desempenho comparáveis entre países e edições:
+
+- Score: medida ponderada de medalhas, na qual atribuímos pesos diferentes para cada tipo de premiação (ouro = 4 pontos, prata = 2 pontos e bronze = 1 ponto);
+- Índice de Medalhas: proporção de medalhas conquistadas por um país em determinada edição em relação ao total de medalhas distribuídas naquela edição.
+
+A primeira métrica permite capturar não apenas a quantidade, mas também a qualidade das medalhas obtidas. Já o índice de medalhas controla o tamanho da edição, tornando comparáveis Jogos com diferentes números de provas e participantes.
+
+Para calcular essas medidas, construímos uma base por país e edição. Além do cálculo das métricas, identificamos se o país atuava como sede naquela edição, contabilizamos o número de atletas enviados por delegação e atribuímos o continente correspondente a cada país. Também excluímos equipes mistas e atletas independentes, pois não podem ser associados a um país específico, o que comprometeria a análise do efeito sede.
+
+```{r main_score_medal_rate, message=FALSE, warning=FALSE}
+athlete_count <- athlete_event_result |>
+  select(
+    edition_id,
+    country_noc,
+    athlete_id,
+    medal
+  ) |>
+  group_by(edition_id, country_noc) |>
+  summarise(
+    n_athletes = n_distinct(athlete_id),
+    .groups = "drop"
+  )
+
+medals_per_country_per_edition <- game_medal_tally |>
+  left_join(
+    game |> select(edition_id, host_country), 
+    by = "edition_id"
+  ) |>
+  mutate(
+    is_host = country_noc == host_country,
+    score_total  = (4 * gold) + (2 * silver) + bronze,
+  ) |>
+  group_by(country_noc, edition_id, year, edition) |>
+  summarise(
+    gold = sum(gold, na.rm = TRUE),
+    silver = sum(silver, na.rm = TRUE),
+    bronze = sum(bronze, na.rm = TRUE),
+    total = sum(total, na.rm = TRUE),
+    is_host = any(is_host),
+    score_total = sum(score_total, na.rm = TRUE),
+    .groups = "drop"
+  )  |>
+  mutate(
+    continent = countrycode(country_noc, "ioc", "continent"),
+    # Países que deixaram de existir ou outros grupos
+    continent = case_when(
+      country_noc == "AHO" ~ "Americas",   # Netherlands Antilles
+      country_noc == "ANZ" ~ "Oceania",    # Australasia
+      country_noc == "BOH" ~ "Europe",     # Bohemia
+      country_noc == "EUN" ~ "Europe",     # Equipe Unificada
+      country_noc == "FRG" ~ "Europe",     # Alemanha Ocidental
+      country_noc == "GDR" ~ "Europe",     # Alemanha Oriental
+      country_noc == "IOA" ~ NA_character_,# Atletas Independentes
+      country_noc == "KOS" ~ "Europe",     # Kosovo
+      country_noc == "MIX" ~ NA_character_,# Mixed Team
+      country_noc == "ROC" & year < 2020 ~ "Asia",    # Taiwan/China
+      country_noc == "ROC" & year >= 2020 ~ "Europe", # Comitê Olímpico Russo
+      country_noc == "SCG" ~ "Europe",     # Sérvia e Montenegro
+      country_noc == "TCH" ~ "Europe",     # Tchecoslováquia
+      country_noc == "UAR" ~ "Africa",     # República Árabe Unida (Egito)
+      country_noc == "URS" ~ "Europe",     # União Soviética
+      country_noc == "WIF" ~ "Americas",   # West Indies Federation (Caribe)
+      country_noc == "YUG" ~ "Europe",     # Iugoslávia
+      TRUE ~ continent
+    )
+  ) |>
+  group_by(edition_id) |>
+  mutate(
+    medal_rate = total / sum(total)
+  ) |>
+  ungroup() |>
+  filter(!is.na(continent)) |>
+  left_join(athlete_count, by = c("edition_id", "country_noc"))
+```
+
+#### SCORE ACUMULADO
+
+Além da análise por edição, é interessante observar o desempenho dos países de forma acumulada ao longo do tempo. O score acumulado permite visualizar a consolidação histórica das potências olímpicas, mostrando quais países mantêm um desempenho consistente ao longo das décadas. Para construir essa métrica, ordenamos os dados por país e ano e aplicamos a soma acumulada do score total obtido em cada edição.
+
+```{r score_cum}
+score_cum <- medals_per_country_per_edition |>
+  arrange(country_noc, edition_id) |>
+  group_by(country_noc, edition) |>
+  mutate(
+    score_cum = cumsum(score_total)
+  ) |>
+  ungroup() |>
+  select(
+    country_noc,
+    continent,
+    year,
+    edition,
+    is_host,
+    score = score_cum
+  ) |>
+  mutate(
+    edition = factor(
+      edition,
+      levels = c("Olimpíadas de Verão",
+                 "Olimpíadas de Inverno")
+    )
+  )
+```
+
+Dessa forma, cada ponto no gráfico representa o total de pontos já conquistados pelo país até aquele ano.
+
+```{r plot_score_cum}
+# Labels que aparecerão no gráfico
+huge_score <- score_cum |>
+  group_by(country_noc, edition) |>
+  filter((edition == "Olimpíadas de Verão" & score >= 2000) | (edition == "Olimpíadas de Inverno" & score >= 450)) |>
+  slice_max(year, n = 1)
+
+ggplot(
+    score_cum,
+    aes(x = year, y = score, color = continent, group = country_noc)
+  ) +
+  geom_line(size = 0.8, alpha = 0.6) +
+  scale_color_manual(
+    name   = "Continente",
+    values = c(
+      "Africa"   = "#F26E22",
+      "Americas" = "#7ABF49",
+      "Asia"     = "#F2B90C",
+      "Europe"   = "#03588C",
+      "Oceania"  = "#A60D0D"
+    ),
+    labels = c(
+      "Africa"   = "África",
+      "Americas" = "América",
+      "Asia"     = "Ásia",
+      "Europe"   = "Europa",
+      "Oceania"  = "Oceania"
+    )
+  ) +
+  geom_point(
+    data = huge_score,
+    size = 2,
+    color = "black",
+    show.legend = FALSE
+  ) +
+  geom_text_repel(
+    data = bind_rows(huge_score),
+    aes(label = country_noc),
+    size = 3,
+    color = "black",
+    show.legend = FALSE
+  ) +
+  facet_wrap(~ edition, ncol = 2, scales = "free") +
+  labs(
+    title = "Evolução do score acumulado por país",
+    x = NULL,
+    y = "Score acumulado",
+    caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
+  ) +
+  theme_olympics()
+```
+
+Como o número de países é elevado, a parte inferior do gráfico se torna visualmente poluída. Por isso, em seguida apresentamos uma versão focada nos três países com maior score atual em cada continente.
+
+```{r plot_score_cum_top3}
+# Busca os 3 países com o maior score atual por continente
+top_countries <- score_cum |>
+  group_by(edition, continent, country_noc) |>
+  slice_max(year, n = 1) |>
+  ungroup() |>
+  group_by(edition, continent) |>
+  slice_max(score, n = 3) |>
+  ungroup() |>
+  select(edition, continent, country_noc)
+
+# Pega as informações dos melhores países
+top_by_continent <- score_cum |>
+  semi_join(
+    top_countries,
+    by = c("edition", "continent", "country_noc")
+  )
+
+# Labels que aparecerão no gráfico
+labels_data <- top_by_continent |>
+  group_by(edition, country_noc) |>
+  arrange(year, .by_group = TRUE) |>
+  mutate(
+    group_id = cur_group_id(),
+    n = n(),
+    label_position = round(n * (0.1 + 0.2 * (group_id %% 3))),
+    continent = continent
+  ) |>
+  filter(row_number() == label_position) |>
+  ungroup()
+
+ggplot(
+  top_by_continent,
+  aes(x = year, y = score, color = continent, group = country_noc)
+) +
+  geom_line(size = 0.8, alpha = 0.6) +
+  scale_color_manual(
+    name   = "Continente",
+    values = c(
+      "Africa"   = "#F26E22",
+      "Americas" = "#7ABF49",
+      "Asia"     = "#F2B90C",
+      "Europe"   = "#03588C",
+      "Oceania"  = "#A60D0D"
+    ),
+    labels = c(
+      "Africa"   = "África",
+      "Americas" = "América",
+      "Asia"     = "Ásia",
+      "Europe"   = "Europa",
+      "Oceania"  = "Oceania"
+    )
+  ) +
+  geom_text_repel(
+    data = labels_data,
+    aes(label = country_noc, color = continent),
+    size = 3,
+    fontface = "bold",
+    show.legend = FALSE
+  ) +
+  facet_wrap(~ edition, ncol = 2, scales = "free") +
+  labs(
+    title = "Evolução do score acumulado por país",
+    subtitle = "Top 3 atuais por continente",
+    x = NULL,
+    y = "Score acumulado",
+    caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
+  ) +
+  theme_olympics()
+```
+
+No caso da América, observa-se que o Brasil não está entre os três países com os maiores scores atuais. Isso motiva uma análise específica da evolução brasileira dentro do continente, destacando sua trajetória histórica e comparando-a com outras nações americanas.
+
+```{r plot_score_cum_america}
+# Labels que aparecerão no gráfico
+labels_data <- score_cum |>
+  filter(continent == "Americas") |>
+  group_by(edition, country_noc) |>
+  arrange(year, .by_group = TRUE) |>
+  mutate(
+    group_id = cur_group_id(),
+    n = n(),
+    label_position = round(n * (0.1 + 0.3 * (group_id %% 3)))
+  ) |>
+  filter(row_number() == label_position) |>
+  ungroup()
+
+ggplot(
+  score_cum |> filter(continent == "Americas"),
+  aes(
+    x = year,
+    y = score, 
+    color = country_noc,
+  )
+  ) +
+  geom_line(size = 0.8, show.legend = FALSE) +
+  geom_text_repel(
+    data = labels_data,
+    aes(label = country_noc),
+    size = 3,
+    fontface = "bold",
+    show.legend = FALSE
+  ) +
+  facet_wrap(~ edition, ncol = 2, scales = "free") +
+  labs(
+    title = "Evolução do score acumulado por país",
+    subtitle = "América",
+    x = NULL,
+    y = "Score acumulado",
+    caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
+  ) +
+  theme_olympics()
+```
+
+Apesar do recorte continental reduzir a complexidade da visualização, ainda há muitas curvas sobrepostas, o que dificulta a leitura da trajetória específica do Brasil. Ao destacar o Brasil, conseguimos observar melhor seu ritmo de crescimento e sua posição relativa dentro do continente.
+
+```{r plot_score_cum_brasil}
+ggplot(
+  score_cum |> filter(continent == "Americas"),
+  aes(
+    x = year,
+    y = score, 
+    color = country_noc, 
+    alpha = country_noc == "BRA" | edition == "Olimpíadas de Inverno")
+) +
+  scale_alpha_manual(
+    values = c(
+      "TRUE" = 1,
+      "FALSE" = 0.3
+    ),
+    guide = "none"
+  ) +
+  geom_line(size = 0.8, show.legend = FALSE) +
+  geom_text_repel(
+    data = labels_data,
+    aes(label = country_noc, color = country_noc),
+    size = 3,
+    fontface = "bold",
+    show.legend = FALSE
+  ) +
+  facet_wrap(~ edition, ncol = 2, scales = "free") +
+  labs(
+    title = "Evolução do score acumulado por país",
+    subtitle = "América - Brasil em destaque",
+    x = NULL,
+    y = "Score acumulado",
+    caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
+  ) +
+  theme_olympics()
+```
+
+#### MÉTRICAS
 
 ### CONCLUSÃO E OBSERVAÇÕES
 
@@ -163,7 +534,7 @@ THE OLYMPIC DESIGN. *Olympic Games – The Design*. Disponível em: https://www.
 
 ### APÊNDICE - VARIÁVEIS E FUNÇÕES AUXILIARES
 
-```{r}
+```{r appendix}
 # Paletas
 winter_france_1924_palette <- list(
   primary = c("#07598C", "#F2A413", "#A63B32", "#BF491F", "#F0EADC"),
@@ -215,7 +586,7 @@ theme_olympics <- function(pallete) {
       strip.text = element_text(face = "bold", size = 11),
       strip.background = element_rect(fill = "gray90", color = NA),
       axis.title = element_text(face = "bold", size = 10),
-      axis.text.y = element_text(face = "bold.italic"),
+      axis.text.y = element_text(face = "italic"),
       panel.grid.minor = element_blank(),
       panel.grid.major.x = element_blank(),
       panel.grid.major.y = element_line(color = "gray85")
