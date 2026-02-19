@@ -14,14 +14,15 @@ Os Jogos Olímpicos representam um dos maiores eventos esportivos do mundo, reun
 
 Os dados utilizados neste trabalho foram obtidos a partir do repositório [*Historical Data from the Olympics*](https://basedosdados.org/dataset/62f8cb83-ac37-48be-874b-b94dd92d3e2b), disponível na plataforma Base dos Dados. O conjunto é uma tentativa de criar uma base de dados atualizada com informações sobre os Jogos Olímpicos. A partir dessas bases, realizamos etapas de limpeza, padronização e agregação das informações, construindo métricas próprias para avaliar o desempenho médio dos países como sede e como não sede.
 
-As análises foram conduzidas utilizando a linguagem R e as seguintes bibliotecas:
+As análises foram conduzidas utilizando a linguagem R e todo o código utilizado para limpeza, construção das métricas e geração das visualizações está disponível no [repositório do projeto no GitHub](https://github.com/amonvanderlei-impatech/olympiads-data-analysis). Além disso, as seguintes bibliotecas foram utilizadas:
 
 ```{r packages, message=FALSE, warning=FALSE}
-# install.packages(c("tidyverse", "ggrepel", "countrycode", "gt", "sf", "rnaturalearth", "rnaturalearthdata", "tidygeocoder"))
+# install.packages(c("tidyverse", "ggrepel", "countrycode", "gt", "sf", "rnaturalearth", "rnaturalearthdata", "tidygeocoder", "patchwork"))
 
 library(tidyverse)
 library(ggrepel)
 library(countrycode)
+library(patchwork)
 library(gt)
 library(sf)
 library(rnaturalearth)
@@ -301,7 +302,7 @@ score_cum <- medals_per_country_per_edition |>
 
 Dessa forma, cada ponto no gráfico representa o total de pontos já conquistados pelo país até aquele ano.
 
-```{r plot_score_cum}
+```{r plot_score_cum, warning=FALSE}
 # Labels que aparecerão no gráfico
 huge_score <- score_cum |>
   group_by(country_noc, edition) |>
@@ -428,7 +429,7 @@ ggplot(
 
 No caso da América, observa-se que o Brasil não está entre os três países com os maiores scores atuais. Isso motiva uma análise específica da evolução brasileira dentro do continente, destacando sua trajetória histórica e comparando-a com outras nações americanas.
 
-```{r plot_score_cum_america}
+```{r plot_score_cum_america, warning=FALSE}
 # Labels que aparecerão no gráfico
 labels_data <- score_cum |>
   filter(continent == "Americas") |>
@@ -458,6 +459,16 @@ ggplot(
     fontface = "bold",
     show.legend = FALSE
   ) +
+  scale_color_manual(
+    values = c(
+      winter_italy_1956_palette$primary,
+      summer_brasil_2016_palette$primary,
+      summer_canada_1976_palette$primary,
+      winter_germany_1936_palette$primary,
+      summer_usa_1932_palette$primary,
+      winter_swiss_1928_palette$primary
+    )
+  ) +
   facet_wrap(~ edition, ncol = 2, scales = "free") +
   labs(
     title = "Evolução do score acumulado por país",
@@ -471,7 +482,7 @@ ggplot(
 
 Apesar do recorte continental reduzir a complexidade da visualização, ainda há muitas curvas sobrepostas, o que dificulta a leitura da trajetória específica do Brasil. Ao destacar o Brasil, conseguimos observar melhor seu ritmo de crescimento e sua posição relativa dentro do continente.
 
-```{r plot_score_cum_brasil}
+```{r plot_score_cum_brasil, warning=FALSE}
 ggplot(
   score_cum |> filter(continent == "Americas"),
   aes(
@@ -495,6 +506,16 @@ ggplot(
     fontface = "bold",
     show.legend = FALSE
   ) +
+  scale_color_manual(
+    values = c(
+      winter_italy_1956_palette$primary,
+      summer_brasil_2016_palette$primary,
+      summer_canada_1976_palette$primary,
+      winter_germany_1936_palette$primary,
+      summer_usa_1932_palette$primary,
+      winter_swiss_1928_palette$primary
+    )
+  ) +
   facet_wrap(~ edition, ncol = 2, scales = "free") +
   labs(
     title = "Evolução do score acumulado por país",
@@ -506,13 +527,273 @@ ggplot(
   theme_olympics()
 ```
 
-#### MÉTRICAS
+#### COMPARAÇÃO ENTRE MÉTRICAS
+
+Para comparar as métricas, utilizaremos os mesmos gráficos feitos com as duas métricas. Para atingir nosso propósito, precisamos de alguns dados gerais sobre o desempenho brasileiro.
+
+```{r mean_brasil}
+mean_brasil <- medals_per_country_per_edition |>
+  filter(country_noc == "BRA") |>
+  group_by(edition, is_host) |>
+  summarise(
+    mean_score = mean(score_total),
+    mean_medal_rate = mean(medal_rate),
+    .groups = "drop"
+  ) |>
+  mutate(
+    is_host = factor(
+      is_host,
+      levels = c(TRUE, FALSE),
+      labels = c("Sede", "Não sede")
+    )
+  )
+```
+
+O primeiro gráfico que plotaremos é um boxplot do desempenho por país em cada métrica com destaque para o Brasil.
+
+```{r performance_by_country, fig.width=14, fig.height=6, warning=FALSE}
+# Score
+score_by_country <- medals_per_country_per_edition |>
+  mutate(
+    is_host = factor(
+      is_host,
+      levels = c(TRUE, FALSE),
+      labels = c("Sede", "Não sede")
+    )
+  ) |>
+  ggplot(aes(x = is_host, y = score_total, fill = is_host)) +
+  geom_boxplot(alpha = 0.8, width = 0.6, show.legend = FALSE) +
+  geom_point(
+    data = mean_brasil,
+    aes(x = is_host, y = mean_score),
+    shape = 23,
+    size = 2,
+    stroke = 0.8,
+    color = "black",
+    fill = "yellow"
+  ) +
+  facet_wrap(~ edition, scales = "free") +
+  scale_fill_manual(values = summer_brasil_2016_palette$primary) +
+  labs(
+    title = "Score por país",
+    subtitle = "Brasil destacado",
+    x = NULL,
+    y = "Score",
+    caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
+  ) +
+  theme_olympics()
+
+# Índice de medalhas
+medal_rate_by_country <- medals_per_country_per_edition |>
+  mutate(
+    is_host = factor(
+      is_host,
+      levels = c(TRUE, FALSE),
+      labels = c("Sede", "Não sede")
+    )
+  ) |>
+  ggplot(aes(x = is_host, y = medal_rate, fill = is_host)) +
+  geom_boxplot(alpha = 0.8, width = 0.6, show.legend = FALSE) +
+  geom_point(
+    data = mean_brasil,
+    aes(x = is_host, y = mean_medal_rate),
+    shape = 23,
+    size = 2,
+    stroke = 0.8,
+    color = "black",
+    fill = "yellow"
+  ) +
+  facet_wrap(~ edition, scales = "free") +
+  scale_fill_manual(values = summer_brasil_2016_palette$primary) +
+  labs(
+    title = "Índice de Medalhas por país",
+    subtitle = "Brasil destacado",
+    x = NULL,
+    y = "Índice de Medalhas",
+    caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
+  ) +
+  theme_olympics()
+
+(score_by_country + medal_rate_by_country) +
+  plot_layout(widths = c(1, 1)) +
+  plot_annotation(
+    title = "Impacto de sediar os Jogos Olímpicos",
+    subtitle = "Comparação entre Score e Índice de Medalhas"
+  )
+```
+
+Embora baseadas em aspectos distintos, as duas métricas apresentam padrões semelhantes entre si. O Score enfatiza a qualidade das medalhas conquistadas, ao atribuir pesos diferentes, enquanto o Índice de Medalhas captura a participação relativa do país no total de premiações. A semelhança dos resultados indica que sediar os Jogos tende a ampliar tanto o volume de medalhas quanto a relevância do desempenho. Assim, podemos analisar qual foi o impacto das olimpíadas de 2016 no desempenho brasileiro.
+
+```{r bubble_in_time, fig.width=14, fig.height=6, warning=FALSE}
+score_athletes <- medals_per_country_per_edition |>
+  filter(country_noc == "BRA") |>
+  mutate(
+    is_host = factor(
+      is_host,
+      levels = c(TRUE, FALSE),
+      labels = c("Sede", "Não sede")
+    )
+  ) |>
+  ggplot(
+    aes(
+      x = year, 
+      y = score_total, 
+      color = is_host,
+      size = n_athletes
+    )
+  ) +
+  geom_point(alpha = 0.6, stroke = 1.2) +
+  scale_color_manual(values = summer_brasil_2016_palette$primary, name = NULL) +
+  scale_size_continuous(range = c(2, 12)) +
+  labs(
+    title = "Score brasileiro por edição nos jogos de verão",
+    subtitle = "Tamanho do ponto representa o número de atletas medalhistas",
+    x = NULL,
+    y = "Score",
+    caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
+  ) +
+  guides(size = "none") +
+  theme_olympics()
+
+# Índice de Medalhas
+medal_rate_athletes <- medals_per_country_per_edition |>
+  filter(country_noc == "BRA") |>
+  mutate(
+    is_host = factor(
+      is_host,
+      levels = c(TRUE, FALSE),
+      labels = c("Sede", "Não sede")
+    )
+  ) |>
+  ggplot(
+    aes(
+      x = year, 
+      y = medal_rate, 
+      color = is_host,
+      size = n_athletes
+    )
+  ) +
+  geom_point(alpha = 0.6, stroke = 1.2) +
+  scale_color_manual(values = summer_brasil_2016_palette$primary, name = NULL) +
+  scale_size_continuous(range = c(2, 12)) +
+  labs(
+    title = "Índice de Medalhas brasileiro por edição nos jogos de verão",
+    subtitle = "Tamanho do ponto representa o número de atletas medalhistas",
+    x = NULL,
+    y = "Índice de Medalhas",
+    caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
+  ) +
+  guides(size = "none") +
+  theme_olympics()
+
+(score_athletes + medal_rate_athletes) +
+  plot_layout(widths = c(1, 1)) +
+  plot_annotation(
+    title = "Evolução brasileira nos Jogos Olímpicos",
+    subtitle = "Comparação entre Score e Índice de Medalhas"
+  )
+```
+
+A visualização temporal sugere que podem haver efeitos que se estendem além do ano em que o país foi sede dos jogos. Observa-se um aumento no número de atletas em 2016, o que é esperado, dado que o país sede possui vagas automáticas em diversas modalidades. Esse aumento pode explicar parte do crescimento no desempenho. Entretanto, como os resultados competitivos em 2020 se mantém perto dos resultados de 2016, o impacto pode não se restringir ao ano em que o país é sede. Tentando ver como esse efeito sede se comporta no geral, vamos calculá-lo para os outros países para compará-lo com o efeito sede brasileiro.
+
+```{r host_effect}
+host_effect_score <- medals_per_country_per_edition |>
+  group_by(country_noc, edition, is_host) |>
+  summarise(
+    mean_score = mean(score_total),
+    .groups = "drop"
+  ) |>
+  pivot_wider(
+    names_from = is_host,
+    values_from = mean_score
+  ) |>
+  mutate(
+    host_effect = `TRUE` - `FALSE`,
+    is_brasil = country_noc == "BRA"
+  ) |>
+  filter(!is.na(host_effect))
+
+host_effect_medal_rate <- medals_per_country_per_edition |>
+  group_by(country_noc, edition, is_host) |>
+  summarise(
+    mean_medal_rate = mean(medal_rate),
+    .groups = "drop"
+  ) |>
+  pivot_wider(
+    names_from = is_host,
+    values_from = mean_medal_rate
+  ) |>
+  mutate(
+    host_effect = `TRUE` - `FALSE`,
+    is_brasil = country_noc == "BRA"
+  ) |>
+  filter(!is.na(host_effect))
+```
+
+Assim, podemos plotar um boxplot para entender o efeito sede geral.
+
+```{r plot_host_effect, fig.width=14, fig.height=6, warning=FALSE}
+score_host_effect <- ggplot(host_effect_score, aes(x = edition, y = host_effect, fill = edition)) +
+  geom_boxplot(alpha = 0.8, width = 0.6, show.legend = FALSE) +
+  geom_point(
+    data = host_effect_score |> filter(country_noc == "BRA"),
+    aes(x = edition, y = host_effect),
+    shape = 23,
+    size = 2,
+    stroke = 0.8,
+    color = "black",
+    fill = "yellow"
+  ) +
+  scale_fill_manual(values = winter_italy_1956_palette$secondary) +
+  labs(
+    title = "Distribuição do Efeito Sede por País",
+    subtitle = "Diferença média de pontuação - Brasil destacado",
+    x = NULL,
+    y = "Efeito Sede (Score)",
+    caption = "Fonte: Base dos Dados - Historical Data from the Olympics",
+    color = NULL
+  ) +
+  theme_olympics()
+
+medal_rate_host_effect <- ggplot(host_effect_medal_rate, aes(x = edition, y = host_effect, fill = edition)) +
+  geom_boxplot(alpha = 0.8, width = 0.6, show.legend = FALSE) +
+  geom_point(
+    data = host_effect_medal_rate |> filter(country_noc == "BRA"),
+    aes(x = edition, y = host_effect),
+    shape = 23,
+    size = 2,
+    stroke = 0.8,
+    color = "black",
+    fill = "yellow"
+  ) +
+  scale_fill_manual(values = winter_italy_1956_palette$secondary) +
+  labs(
+    title = "Distribuição do Efeito Sede por País",
+    subtitle = "Diferença média de pontuação - Brasil destacado",
+    x = NULL,
+    y = "Efeito Sede (Índice de Medalhas)",
+    caption = "Fonte: Base dos Dados - Historical Data from the Olympics",
+    color = NULL
+  ) +
+  theme_olympics()
+
+(score_host_effect + medal_rate_host_effect) +
+  plot_layout(widths = c(1, 1)) +
+  plot_annotation(
+    title = "Efeito sede nos Jogos Olímpicos",
+    subtitle = "Comparação entre Score e Índice de Medalhas"
+  )
+```
+
+Os boxplots indicam que, em média, a distribuição do efeito sede é positiva, tanto quando medido pelo Score quanto pelo Índice de Medalhas. Isso sugere que, de maneira geral, os países tendem a apresentar desempenho superior quando competem em casa. A mediana acima de zero em ambas as métricas reforça a hipótese da existência de um efeito sede estrutural, e não apenas uma coincidência.
 
 ### CONCLUSÃO E OBSERVAÇÕES
 
-<!-- Conclusão de ambas as partes -->
+<!-- Conclusão da parte geral -->
 
-Github: https://github.com/amonvanderlei-impatech/olympiads-data-analysis
+A partir das métricas construídas, identificou-se a existência de um efeito sede nos Jogos Olímpicos. Tanto o Score quanto o Índice de Medalhas indicam que, em média, os países tendem a apresentar desempenho superior quando competem como anfitriões, com medianas positivas em ambas as medidas. Apesar de capturarem dimensões distintas, as duas métricas apresentaram resultados convergentes. Isso sugere que sediar os Jogos pode ampliar não apenas o volume absoluto de medalhas, mas também a relevância proporcional do desempenho.
+
+No caso brasileiro, observou-se melhora expressiva em 2016, acompanhada por aumento no número de atletas. Parte desse efeito pode ser explicada por fatores como maior delegação e apoio da torcida, mas os resultados em 2020 indicam que investimentos realizados no ciclo olímpico também podem ter contribuído. Entretanto, a dispersão geral observada mostra que os ganhos variam significativamente, sugerindo que o impacto também depende de características estruturais, como tradição esportiva e capacidade de investimento. Além disso, países escolhidos para sediar os Jogos frequentemente já possuem forte histórico esportivo.
 
 ### AGRADECIMENTOS
 
