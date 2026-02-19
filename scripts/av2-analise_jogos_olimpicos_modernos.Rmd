@@ -1,9 +1,9 @@
 ---
-title: "Análise dos Jogos Olímpicos Modernos"
+title: "ANÁLISE DOS JOGOS OLÍMPICOS MODERNOS"
 output: html_document
 ---
 
-## AV2 - Introdução à Ciência de Dados
+## AV2 - INTRODUÇÃO À CIÊNCIA DE DADOS
 #### Amon Chalegre Gomes Vanderlei e Pedro Paulo Gomes Paiva
 
 ### INTRODUÇÃO
@@ -12,7 +12,7 @@ Os Jogos Olímpicos representam um dos maiores eventos esportivos do mundo, reun
 
 ### BASE DE DADOS
 
-Os dados utilizados neste trabalho foram obtidos a partir do repositório [*Historical Data from the Olympics*](https://basedosdados.org/dataset/62f8cb83-ac37-48be-874b-b94dd92d3e2b), disponível na plataforma Base dos Dados. O conjunto é uma tentativa de criar uma base de dados atualizada com informações sobre os Jogos Olímpicos. A partir dessas bases, realizamos etapas de limpeza, padronização e agregação das informações, construindo métricas próprias para avaliar o desempenho médio dos países como sede e como não sede.
+Os dados utilizados neste trabalho foram obtidos a partir do repositório [*Historical Data from the Olympics*](https://basedosdados.org/dataset/62f8cb83-ac37-48be-874b-b94dd92d3e2b), disponível na plataforma Base dos Dados. O conjunto é uma tentativa de criar uma base de dados atualizada com informações sobre os Jogos Olímpicos. A partir dessas bases, realizamos etapas de limpeza, padronização e agregação das informações, construindo métricas próprias para avaliar o desempenho médio dos países como sede e como não sede. Os dados contidos nessas bases de dados abrange todos os jogos que ocorreram entre a edição de 1896 em Atenas e a edição de 2022 em Beijing, portanto os resultados dos jogos olímpicos de 2024 em Paris e os jogos de 2026 em Milão/Cortina não serão levados em consideração nesta análise.
 
 As análises foram conduzidas utilizando a linguagem R e todo o código utilizado para limpeza, construção das métricas e geração das visualizações está disponível no [repositório do projeto no GitHub](https://github.com/amonvanderlei-impatech/olympiads-data-analysis). Além disso, as seguintes bibliotecas foram utilizadas:
 
@@ -76,13 +76,16 @@ theme_olympics <- function() {
         b = 10,
         l = 15
       ),
-      plot.title = element_text(face = "bold", size = 16),
+      plot.title = element_text(face = "bold", size = 14),
       plot.subtitle = element_text(face = "italic", size = 12, margin = margin(b = 8)),
-      plot.caption = element_text(size = 9, color = "gray10"),
-      strip.text = element_text(face = "bold", size = 11),
+      legend.title = element_text(face = "bold", size = 10),
+      legend.text = element_text(face = "italic", size = 10),
+      legend.position = "bottom",
+      plot.caption = element_text(size = 10, color = "gray10"),
+      strip.text = element_text(face = "bold", size = 10),
       strip.background = element_rect(fill = "gray90", color = NA),
       axis.title = element_text(face = "bold", size = 10),
-      axis.text.y = element_text(face = "italic"),
+      axis.text.y = element_text(face = "bold.italic"),
       panel.grid.minor = element_blank(),
       panel.grid.major.x = element_blank(),
       panel.grid.major.y = element_line(color = "gray85")
@@ -93,11 +96,11 @@ theme_olympics <- function() {
 As seguintes bases serão utilizadas ao longo da análise:
 
 ```{r datasets, message=FALSE, warning=FALSE}
-game <- read_csv("../data/raw/game.csv.gz")
-country <- read.csv("../data/raw/country.csv.gz")
-athlete_bio <- read.csv("../data/raw/athlete_bio.csv.gz")
-game_medal_tally <- read_csv("../data/raw/game_medal_tally.csv.gz")
-athlete_event_result <- read_csv("../data/raw/athlete_event_result.csv.gz")
+game <- read_csv("data/raw/game.csv")
+country <- read.csv("data/raw/country.csv")
+athlete_bio <- read.csv("data/raw/athlete_bio.csv")
+game_medal_tally <- read_csv("data/raw/game_medal_tally.csv")
+athlete_event_result <- read_csv("data/raw/athlete_event_result.csv")
 ```
 
 #### LIMPEZA DOS DADOS
@@ -129,22 +132,7 @@ country <- country |>
 
 athlete_bio <- athlete_bio |>
   select(athlete_id, sex, name) |>
-  mutate(athlete_id = as.numeric(athlete_id)) |>
-  # Preenche dados faltantes
-  mutate(
-    name = case_when(
-      athlete_id == 69534 ~ "John Thornton",
-      athlete_id == 36110 ~ "Frank Courtney",
-      athlete_id == 2302137 ~ "Peter Hunter Gaskell",
-      athlete_id == 902283 ~ "Kay Todd, Jr.",
-      athlete_id == 920957 ~ "Hoka Iwabuchi",
-      athlete_id == 37833 ~ "Hans Joachim Hannemann",
-      TRUE ~ name
-    ),
-    sex = case_when(
-      athlete_id %in% c(69534,36110,2302137,902283,920957,37833) ~ "Male",
-      TRUE ~ sex)
-  )
+  mutate(athlete_id = as.numeric(athlete_id))
 
 game_medal_tally <- game_medal_tally |>
   # Atrela o hipismo à sede na Austrália
@@ -156,8 +144,8 @@ game_medal_tally <- game_medal_tally |>
       str_detect(edition, "Summer") ~ "Olimpíadas de Verão",
       str_detect(edition, "Equestrian") ~ "Olimpíadas de Verão",
       str_detect(edition, "Winter") ~ "Olimpíadas de Inverno"
+      )
     )
-  )
 
 athlete_event_result <- athlete_event_result |>
   mutate(
@@ -175,6 +163,7 @@ athlete_event_result <- athlete_event_result |>
   # Retira os jogos intercalados
   filter(year != 1906) |>
   select(
+    year,
     edition_id,
     edition,
     country_noc,
@@ -188,11 +177,957 @@ athlete_event_result <- athlete_event_result |>
   group_by(athlete_id, edition_id, sport, event) |>
   slice(1) |>
   ungroup()
+
+athlete_bio_result <- athlete_event_result |>
+  left_join(athlete_bio, by = "athlete_id") |>
+  # Preenche dados faltantes
+  mutate(
+    name = case_when(
+      athlete_id == 69534 ~ "John Thornton",
+      athlete_id == 36110 ~ "Frank Courtney",
+      athlete_id == 2302137 ~ "Peter Hunter Gaskell",
+      athlete_id == 902283 ~ "Kay Todd, Jr.",
+      athlete_id == 920957 ~ "Hoka Iwabuchi",
+      athlete_id == 37833 ~ "Hans Joachim Hannemann",
+      TRUE ~ name
+    ),
+    sex = case_when(
+      athlete_id %in% c(69534,36110,2302137,902283,920957,37833) ~ "Male",
+      TRUE ~ sex)
+  )
 ```
 
 ### ANÁLISE GERAL
 
-<!-- Análise geral, resultados e breve discussão -->
+#### TRATAMENTO DE DADOS
+
+Para estas análises vamos necessitar de mais algumas etapas de tratamentos de dados, utilizando as bases tratadas anteriormente.
+
+```{r}
+# União das Bases de Dados
+dados_participacoes <- athlete_bio_result %>% 
+  # Tradução de Variáveis
+  transmute(ano = year,
+         edicao_id = edition_id,
+         estacao = case_when(str_detect(edition, "Verão") ~ "Verão",
+                             str_detect(edition, "Inverno") ~ "Inverno"),
+         atleta_id = athlete_id,
+         nome = str_trim(name),
+         pais_sg = country_noc,
+         sexo = case_when(sex == "Male" ~ "Homem",
+                             sex == "Female" ~"Mulher"),
+         esporte = sport,
+         modalidade = event,
+         medalha = factor(medal,
+                             level = c("Gold", "Silver", "Bronze"),
+                             labels = c("Ouro", "Prata", "Bronze")))
+```
+
+Também vamos coletar a posição espacial (latitude e longitude) de todas as cidades que já sediaram os jogos olímpicos.
+
+```{r, message=FALSE, warning=FALSE}
+# Tradução de Variáveis
+siglas_convercao <- country %>% 
+  transmute(pais_sg = noc,
+            pais = name)
+
+dados_latlong <- game %>% 
+  # Tradução de Variáveis
+  mutate(edicao_id = edition_id,
+         estacao = case_when(str_detect(edition, "Verão") ~ "Verão",
+                             str_detect(edition, "Inverno") ~ "Inverno"),
+         cidade = city,
+         pais_sg = host_country,
+         bandeira_url = country_flag_url) %>% 
+  # Inserir o Nome dos Países
+  geocode(city = cidade, method = 'osm', lat = latitude , long = longitude) %>% 
+  left_join(siglas_convercao, by = "pais_sg") %>% 
+  select(edicao_id, estacao, cidade, pais_sg, pais, bandeira_url, latitude, longitude)
+```
+
+Para iniciar a análise, vamos filtrar dois dataframes que vão ser muito utilizados ao longo do processo:
+
+```{r}
+dados_participacoes_verao <- dados_participacoes %>% 
+  filter(estacao == "Verão")
+
+dados_participacoes_inverno <- dados_participacoes %>% 
+  filter(estacao == "Inverno")
+```
+
+#### NÚMERO DE ATLETAS
+
+Vamos iniciar fazendo um levantamento do número de atletas nas olímpiadas ao longo do tempo e como os acontecimentos geopolíticos influênciam na participação nos jogos.
+
+```{r}
+# Participações Verão
+participantes_ano <- dados_participacoes_verao |> 
+  group_by(ano) |> 
+  distinct(atleta_id, .keep_all = TRUE) |> 
+  summarise(contagem = n())
+
+# Anos Importantes
+pontos_relevantes <- data.frame(
+  x = c(1932, 1956, 1980),
+  y = c(2057, 3549, 5383),
+  l = c("Grande Depressão", "Triplo Boicote", "Guerra Fria")
+)
+
+# Plotagem
+ggplot(participantes_ano, aes(x = ano, y = contagem)) + 
+  geom_area(linewidth = 2,
+            color = winter_swiss_1928_palette$primary[1],
+            fill = winter_swiss_1928_palette$primary[1],
+            alpha = 0.8) + 
+  # Anos Importantes
+  geom_point(data = pontos_relevantes,
+             aes(x = x, y = y),
+             color = winter_swiss_1928_palette$primary[2],
+             size = 3) + 
+  geom_text(data = pontos_relevantes, 
+            aes(x = x, y = y, label = l),
+            vjust = 2,
+            color = "#FFFFFF",
+            fontface = "bold",
+            size = 3.5) +
+  # Temas, Escalas e Legendas
+  scale_x_continuous(breaks = seq(1896, 2020, by = 31)) + 
+  labs(title = "NÚMERO DE ATLETAS AO LONGO DO TEMPO",
+       subtitle = "Olimpíadas de Verão | 1896 Atenas – 2020 Tokyo",
+       x = "ANO",
+       y = "NÚMERO DE PARTICIPANTES") + 
+  theme_olympics()
+```
+
+```{r}
+# Participações Inverno
+participantes_ano <- dados_participacoes_inverno |>
+  group_by(ano) |> 
+  distinct(atleta_id, .keep_all = TRUE) |> 
+  summarise(contagem = n())
+
+# Anos Importantes
+pontos_relevantes <- data.frame(
+  x = c(1932, 1960, 1972, 1994),
+  y = c(385, 670, 1024, 1765),
+  l = c("Grande Depressão", "Bobsled", "Dinâmica Logistíca", "Novo Ciclo")
+)
+
+ggplot(participantes_ano, aes(x = ano, y = contagem)) + 
+  geom_area(linewidth = 2,
+            color = winter_swiss_1928_palette$primary[3],
+            fill = winter_swiss_1928_palette$primary[3],
+            alpha = 0.8) + 
+  # Anos Importantes
+  geom_point(data = pontos_relevantes,
+             aes(x = x, y = y),
+             color = winter_swiss_1928_palette$primary[2],
+             size = 3) + 
+  geom_text(data = pontos_relevantes, 
+            aes(x = x, y = y, label = l),
+            vjust = 2.2,
+            hjust = -0.05,
+            color = "#FFFFFF",
+            fontface = "bold",
+            size = 3.5) +
+  # Temas, Escalas e Legendas
+  scale_x_continuous(breaks = seq(1924, 2022, by = 14)) + 
+  scale_y_continuous(breaks = seq(0, 3000, by = 500), limits = c(0, 3000)) + 
+  labs(title = "NÚMERO DE ATLETAS AO LONGO DO TEMPO",
+       subtitle = "Olimpíadas de Inverno | 1924 Chamonix – 2022 Beijing",
+       x = "ANO",
+       y = "NÚMERO DE PARTICIPANTES") + 
+  theme_olympics()
+```
+
+```{r}
+# Participações Verão Brasil
+participantes_ano <- dados_participacoes_verao |> 
+  filter(pais_sg == "BRA") |>
+  group_by(ano) |> 
+  distinct(atleta_id, .keep_all = TRUE) |> 
+  summarise(contagem = n())
+
+# Plotagem
+ggplot(participantes_ano, aes(x = ano, y = contagem)) + 
+  geom_area(linewidth = 2,
+            color = summer_brasil_2016_palette$primary[4],
+            fill = summer_brasil_2016_palette$primary[3],
+            alpha = 0.8) + 
+  # Temas, Escalas e Legendas
+  scale_x_continuous(breaks = seq(1920, 2020, by = 20)) + 
+  labs(title = "NÚMERO DE ATLETAS BRASILEIROS AO LONGO DO TEMPO",
+       subtitle = "Olimpíadas de Verão | 1920 Antuérpia – 2020 Tokyo",
+       x = "ANO",
+       y = "NÚMERO DE PARTICIPANTES") + 
+  theme_olympics()
+```
+
+```{r}
+# Participações Inverno Brasil
+participantes_ano <- dados_participacoes_inverno |>
+  filter(pais_sg == "BRA") |>
+  group_by(ano) |> 
+  distinct(atleta_id, .keep_all = TRUE) |> 
+  summarise(contagem = n())
+
+# Plotagem
+ggplot(participantes_ano, aes(x = ano, y = contagem)) + 
+  geom_area(linewidth = 2,
+            color = summer_brasil_2016_palette$primary[2],
+            fill = summer_brasil_2016_palette$primary[2],
+            alpha = 0.8) + 
+  # Temas, Escalas e Legendas
+  scale_x_continuous(breaks = seq(1992, 2022, by = 6)) + 
+  labs(title = "NÚMERO DE ATLETAS BRASILEIROS AO LONGO DO TEMPO",
+       subtitle = "Olimpíadas de Inverno | 1992 Albertvill – 2022 Beijing",
+       x = "ANO",
+       y = "NÚMERO DE PARTICIPANTES") + 
+  theme_olympics()
+```
+
+Com base nos gráficos elaborados acima, podemos concluir que as olimpíadas de varão em especial sofrem grande impacto de aspectos geopolíticos, enquanto isso, as olimpíadas de inverno por sua vez, possuem dificuldades mais relacionadas à esfera econômica e limite de verbas.
+
+#### ANÁLISE POR GÊNERO
+
+Após isso vamos fazer uma divisão por gênero para entender o comportamento da quantidade de atletas mulheres e o seu percentual quando comparado ao número de atletas masculinos.
+
+```{r}
+# Pirâmide Gênero - Verão
+piramide_genero_dados <- dados_participacoes_verao |>
+  group_by(ano, sexo) |>
+  summarise(total = n_distinct(atleta_id), .groups = "drop") |>
+  # Considera homens como valor negativo para separar pelo eixo
+  mutate(
+    valor_grafico = ifelse(sexo == "Homem", -total, total),
+    ano_fct = factor(ano, levels = sort(unique(ano), decreasing = TRUE))
+  )
+
+# Gráfico
+ggplot(piramide_genero_dados, aes(x = ano_fct, y = valor_grafico, fill = sexo)) +
+  geom_col(width = 0.8) + 
+  # Inverte os eixos para termos o gráfico de barras horizontais
+  coord_flip() + 
+  scale_y_continuous(labels = abs,
+                     breaks = seq(-7000, 7000, by = 1000),
+                     limits = c(-7500, 7500)) + 
+  scale_fill_manual(values = c("Homem" = winter_swiss_1928_palette$primary[3],
+                               "Mulher" = winter_swiss_1928_palette$primary[1]),
+                    labels = c("Homens", "Mulheres")) +
+  # Tema, Títulos e Legendas
+  labs(
+    title = "EVOLUÇÃO DA PARTICIPAÇÃO POR GÊNERO",
+    subtitle = "Olimpíadas de Verão | 1896 Atenas – 2020 Tokyo",
+    x = "EDIÇÃO",
+    y = "TOTAL DE ATLETAS",
+    fill = "GÊNERO"
+  ) + 
+  theme_olympics() + 
+  theme(axis.text.y = element_text(size = 8),
+        panel.grid.major.x = element_line(color = "gray85"))
+```
+
+```{r}
+# Pirâmide Gênero - Inverno
+piramide_genero_dados <- dados_participacoes_inverno |>
+  group_by(ano, sexo) |>
+  summarise(total = n_distinct(atleta_id), .groups = "drop") |>
+  # Considera homens como valor negativo para separar pelo eixo
+  mutate(
+    valor_grafico = ifelse(sexo == "Homem", -total, total),
+    ano_fct = factor(ano, levels = sort(unique(ano), decreasing = TRUE))
+  )
+
+# Gráfico
+ggplot(piramide_genero_dados, aes(x = ano_fct, y = valor_grafico, fill = sexo)) +
+  geom_col(width = 0.8) + 
+  # Inverte os eixos para termos o gráfico de barras horizontais
+  coord_flip() + 
+  scale_y_continuous(labels = abs,
+                     breaks = seq(-1750, 1750, by = 250),
+                     limits = c(-1750, 1750)) + 
+  scale_fill_manual(values = c("Homem" = winter_swiss_1928_palette$primary[3],
+                               "Mulher" = winter_swiss_1928_palette$primary[1]),
+                    labels = c("Homens", "Mulheres")) +
+  # Tema, Títulos e Legendas
+  labs(
+    title = "EVOLUÇÃO DA PARTICIPAÇÃO POR GÊNERO",
+    subtitle = "Olimpíadas de Inverno | 1924 Chamonix – 2022 Beijing",
+    x = "EDIÇÃO",
+    y = "TOTAL DE ATLETAS",
+    fill = "GÊNERO"
+  ) + 
+  theme_olympics() + 
+  theme(axis.text.y = element_text(size = 8),
+        panel.grid.major.x = element_line(color = "gray85"))
+```
+
+Vamos fazer um filtro para fazer a mesma análise para os atletas do Brasil.
+
+```{r}
+# Pirâmide Gênero Brasil - Verão
+piramide_genero_dados <- dados_participacoes_verao |>
+  filter(pais_sg == "BRA") |>
+  group_by(ano, sexo) |>
+  summarise(total = n_distinct(atleta_id), .groups = "drop") |>
+  # Considera homens como valor negativo para separar pelo eixo
+  mutate(
+    valor_grafico = ifelse(sexo == "Homem", -total, total),
+    ano_fct = factor(ano, levels = sort(unique(ano), decreasing = TRUE)))
+
+# Gráfico
+ggplot(piramide_genero_dados, aes(x = ano_fct, y = valor_grafico, fill = sexo)) +
+  geom_col(width = 0.8) + 
+  # Inverte os eixos para termos o gráfico de barras horizontais
+  coord_flip() + 
+  scale_y_continuous(labels = abs,
+                     breaks = seq(-300, 300, by = 50),
+                     limits = c(-300, 300)) + 
+  scale_fill_manual(values = c("Homem" = summer_brasil_2016_palette$primary[2],
+                               "Mulher" = summer_brasil_2016_palette$primary[3]),
+                    labels = c("Homens", "Mulheres")) +
+  # Tema, Títulos e Legendas
+  labs(
+    title = "EVOLUÇÃO DA PARTICIPAÇÃO POR GÊNERO DO BRASIL",
+    subtitle = "Olimpíadas de Verão | 1920 Antuérpia – 2020 Tokyo",
+    x = "EDIÇÃO",
+    y = "TOTAL DE ATLETAS",
+    fill = "GÊNERO"
+  ) + 
+  theme_olympics() + 
+  theme(axis.text.y = element_text(size = 8),
+        panel.grid.major.x = element_line(color = "gray85"))
+```
+
+```{r}
+# Pirâmide Gênero Brasil - Inverno
+piramide_genero_dados <- dados_participacoes_inverno |>
+  filter(pais_sg == "BRA") |>
+  group_by(ano, sexo) |>
+  summarise(total = n_distinct(atleta_id), .groups = "drop") |>
+  # Considera homens como valor negativo para separar pelo eixo
+  mutate(
+    valor_grafico = ifelse(sexo == "Homem", -total, total),
+    ano_fct = factor(ano, levels = sort(unique(ano), decreasing = TRUE)))
+
+# Gráfico
+ggplot(piramide_genero_dados, aes(x = ano_fct, y = valor_grafico, fill = sexo)) +
+  geom_col(width = 0.8) + 
+  # Inverte os eixos para termos o gráfico de barras horizontais
+  coord_flip() + 
+  scale_y_continuous(labels = abs,
+                     breaks = seq(-10, 10, by = 1),
+                     limits = c(-10, 10)) + 
+  scale_fill_manual(values = c("Homem" = summer_brasil_2016_palette$primary[2],
+                               "Mulher" = summer_brasil_2016_palette$primary[3]),
+                    labels = c("Homens", "Mulheres")) +
+  # Tema, Títulos e Legendas
+  labs(
+    title = "EVOLUÇÃO DA PARTICIPAÇÃO POR GÊNERO DO BRASIL",
+    subtitle = "Olimpíadas de Inverno | 1992 Albertvill – 2022 Beijing",
+    x = "EDIÇÃO",
+    y = "TOTAL DE ATLETAS",
+    fill = "GÊNERO"
+  ) + 
+  theme_olympics() + 
+  theme(panel.grid.major.x = element_line(color = "gray85"))
+```
+
+Podemos ver que o percentual de mulheres participando dos jogos olímpicos era muito discreta, com um crescimento acelerado que tem início após a primeira metade do ´seculo XX, chegando em níveis comparáveis com a parcela masculina apenas nas última edições dos jogos.
+
+#### ANÁLISE POR PAÍS
+
+Agora vamos ver os resultados de medalhas gerais por país:
+
+```{r}
+dados_paises <- game_medal_tally |>
+  mutate(estacao = case_when(str_detect(edition, "Verão") ~ "Verão",
+                             str_detect(edition, "Inverno") ~ "Inverno"))
+```
+
+```{r}
+# Quadro Medalhas Países
+tabela_medalhas <- dados_paises |> 
+  group_by(country_noc) |>
+  # Tabela com o número de medalhas por país
+  summarise(
+    ouro   = sum(gold, na.rm = TRUE),
+    prata  = sum(silver, na.rm = TRUE),
+    bronze = sum(bronze, na.rm = TRUE),
+    .groups = "drop") |>
+  mutate(total_geral = ouro + prata + bronze) |>
+  # Ordena por ouro, prata e bronze
+  arrange(desc(ouro), desc(prata), desc(bronze)) |> 
+  # Seleciona os 10 maiores e traduz
+  slice(1:10) |>
+  mutate(pais = case_match(country_noc,
+    "USA" ~ "Estados Unidos",
+    "URS" ~ "União Soviética",
+    "GER" ~ "Alemanha",
+    "GBR" ~ "Grã-Bretanha",
+    "FRA" ~ "França",
+    "ITA" ~ "Itália",
+    "CHN" ~ "China",
+    "SWE" ~ "Suécia",
+    "NOR" ~ "Noruega",
+    "RUS" ~ "Rússia")) |>
+  select(pais, ouro, prata, bronze, total_geral)
+
+# Elaboração da tabela
+tabela_medalhas |>
+  gt() |>
+  # Cabeçalho e Títulos
+  tab_header(
+    title = md("**QUADRO HISTÓRICO DE MEDALHAS**"),
+    subtitle = md("Países com Melhor Desempenho nos Jogos na História<br>(1896 Atenas – 2022 Beijing)")) |>
+  tab_style(
+    style = cell_text(style = "italic"),
+    locations = cells_title(groups = "subtitle")) |>
+  cols_label(
+    pais = "País", 
+    ouro = "Ouro", 
+    prata = "Prata", 
+    bronze = "Bronze", 
+    total_geral = "Total") |>
+  # Cores (Degradê de Medalhas)
+  data_color(columns = ouro, palette = c("#FFD70030", "#FFD700")) |>
+  data_color(columns = prata, palette = c("#C0C0C030", "#C0C0C0")) |>
+  data_color(columns = bronze, palette = c("#CD7F3230", "#CD7F32")) |>
+  # Estilização de Texto
+  tab_style(
+    style = cell_text(color = "black"),
+    locations = cells_body(columns = everything())) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(columns = pais)) |>
+  # Formatação Numérica e Alinhamento
+  fmt_number(
+    columns = c(ouro, prata, bronze, total_geral), 
+    decimals = 0, 
+    use_seps = TRUE, 
+    sep_mark = ".", 
+    dec_mark = ",") |>
+  cols_align(align = "left", columns = pais) |>
+  cols_align(align = "center", columns = c(ouro, prata, bronze, total_geral)) |>
+  # Layout
+  tab_options(
+    heading.title.font.size = 24,
+    column_labels.font.weight = "bold",
+    table.width = pct(80))
+```
+
+```{r}
+# Quadro Medalhas Edição de Verão
+tabela_medalhas <- dados_paises |> 
+  filter(estacao == "Verão") |>
+  group_by(country_noc) |> 
+  summarise(
+    ouro   = sum(gold, na.rm = TRUE),
+    prata  = sum(silver, na.rm = TRUE),
+    bronze = sum(bronze, na.rm = TRUE),
+    .groups = "drop") |>
+  mutate(total_geral = ouro + prata + bronze) |>
+  # Ordena por ouro, prata e bronze
+  arrange(desc(ouro), desc(prata), desc(bronze)) |> 
+  # Seleciona os 10 maiores e traduz
+  slice(1:10) |>
+  mutate(pais = case_match(country_noc,
+    "USA" ~ "Estados Unidos",
+    "URS" ~ "União Soviética",
+    "GBR" ~ "Grã-Bretanha",
+    "CHN" ~ "China",
+    "GER" ~ "Alemanha",
+    "FRA" ~ "França",
+    "ITA" ~ "Itália",
+    "HUN" ~ "Hungria",
+    "JPN" ~ "Japão",
+    "AUS" ~ "Austrália")) |>
+  select(pais, ouro, prata, bronze, total_geral)
+
+# Elaboração da tabela
+tabela_medalhas |>
+  gt() |>
+  # Cabeçalho e Títulos
+  tab_header(
+    title = md("**QUADRO HISTÓRICO DE MEDALHAS**"),
+    subtitle = md("Países com Melhor Desempenho nos Jogos na História<br>(Olimpíadas de Verão | 1896 Atenas – 2020 Tokyo)")) |>
+  tab_style(
+    style = cell_text(style = "italic"),
+    locations = cells_title(groups = "subtitle")) |>
+  cols_label(
+    pais = "País", 
+    ouro = "Ouro", 
+    prata = "Prata", 
+    bronze = "Bronze", 
+    total_geral = "Total") |>
+  # Cores (Degradê de Medalhas)
+  data_color(columns = ouro, palette = c("#FFD70030", "#FFD700")) |>
+  data_color(columns = prata, palette = c("#C0C0C030", "#C0C0C0")) |>
+  data_color(columns = bronze, palette = c("#CD7F3230", "#CD7F32")) |>
+  # Estilização de Texto
+  tab_style(
+    style = cell_text(color = "black"),
+    locations = cells_body(columns = everything())) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(columns = pais)) |>
+  # Formatação Numérica e Alinhamento
+  fmt_number(
+    columns = c(ouro, prata, bronze, total_geral), 
+    decimals = 0, 
+    use_seps = TRUE, 
+    sep_mark = ".", 
+    dec_mark = ",") |>
+  cols_align(align = "left", columns = pais) |>
+  cols_align(align = "center", columns = c(ouro, prata, bronze, total_geral)) |>
+  # Layout
+  tab_options(
+    heading.title.font.size = 24,
+    column_labels.font.weight = "bold",
+    table.width = pct(80))
+```
+
+```{r}
+# Quadro Medalhas Edição de Inverno
+tabela_medalhas <- dados_paises |>
+  filter(estacao == "Inverno") |>
+  group_by(country_noc) |> 
+  summarise(
+    ouro   = sum(gold, na.rm = TRUE),
+    prata  = sum(silver, na.rm = TRUE),
+    bronze = sum(bronze, na.rm = TRUE),
+    .groups = "drop") |>
+  mutate(total_geral = ouro + prata + bronze) |>
+  # Ordena por ouro, prata e bronze
+  arrange(desc(ouro), desc(prata), desc(bronze)) |> 
+  # Seleciona os 10 maiores e traduz
+  slice(1:10) |>
+  mutate(pais = case_match(country_noc,
+    "NOR" ~ "Noruega",
+    "USA" ~ "Estados Unidos",
+    "GER" ~ "Alemanha",
+    "URS" ~ "União Soviética",
+    "CAN" ~ "Canadá",
+    "AUT" ~ "Áustria",
+    "SWE" ~ "Suécia",
+    "SUI" ~ "Suíça",
+    "NED" ~ "Holanda",
+    "RUS" ~ "Rússia")) |>
+  select(pais, ouro, prata, bronze, total_geral)
+
+# Elaboração da tabela
+tabela_medalhas |>
+  gt() |>
+  # Cabeçalho e Títulos
+  tab_header(
+    title = md("**QUADRO HISTÓRICO DE MEDALHAS**"),
+    subtitle = md("Países com Melhor Desempenho nos Jogos na História<br>(Olimpíadas de Inverno | 1924 Chamonix – 2022 Beijing)")) |>
+  tab_style(
+    style = cell_text(style = "italic"),
+    locations = cells_title(groups = "subtitle")) |>
+  cols_label(
+    pais = "País", 
+    ouro = "Ouro", 
+    prata = "Prata", 
+    bronze = "Bronze", 
+    total_geral = "Total") |>
+  # Cores (Degradê de Medalhas)
+  data_color(columns = ouro, palette = c("#FFD70030", "#FFD700")) |>
+  data_color(columns = prata, palette = c("#C0C0C030", "#C0C0C0")) |>
+  data_color(columns = bronze, palette = c("#CD7F3230", "#CD7F32")) |>
+  # Estilização de Texto
+  tab_style(
+    style = cell_text(color = "black"),
+    locations = cells_body(columns = everything())) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(columns = pais)) |>
+  # Formatação Numérica e Alinhamento
+  fmt_number(
+    columns = c(ouro, prata, bronze, total_geral), 
+    decimals = 0, 
+    use_seps = TRUE, 
+    sep_mark = ".", 
+    dec_mark = ",") |>
+  cols_align(align = "left", columns = pais) |>
+  cols_align(align = "center", columns = c(ouro, prata, bronze, total_geral)) |>
+  # Layout
+  tab_options(
+    heading.title.font.size = 24,
+    column_labels.font.weight = "bold",
+    table.width = pct(80))
+```
+
+Aqui observamos que os Estados Unidos e a União Soviética (extinta) se consolidam como os maiores campeões olímpico até o momento. Entretanto, quando levamos em conta apenas as medalhas dos jogos de inverno, a Noruega consegue ultrapassar ambos e se destaca como uma potência nos esportes com neve.
+
+#### MAIORES MEDALHISTAS
+
+Vamos analisar as premiações dos atletas:
+
+```{r}
+# Quadro Medalhas Atletas
+tabela_atletas <- dados_participacoes |> 
+  group_by(atleta_id, nome) |> 
+  summarise(
+    ouro   = sum(medalha == "Ouro", na.rm = TRUE),
+    prata  = sum(medalha == "Prata", na.rm = TRUE),
+    bronze = sum(medalha == "Bronze", na.rm = TRUE),
+    .groups = "drop") |> 
+  mutate(total_geral = ouro + prata + bronze) |> 
+  arrange(desc(ouro), desc(prata), desc(bronze)) |> 
+  slice(1:10) |> 
+  select(nome, ouro, prata, bronze, total_geral)
+
+# Elaboração da tabela
+tabela_atletas |>
+  gt() |>
+  # Cabeçalho e Títulos
+  tab_header(
+    title = md("**QUADRO HISTÓRICO DE MEDALHAS**"),
+    subtitle = md("Atletas com Melhor Desempenho nos Jogos na História<br>(1896 Atenas – 2022 Beijing)")) |>
+  tab_style(
+    style = cell_text(style = "italic"),
+    locations = cells_title(groups = "subtitle")) |>
+  cols_label(
+    nome = "Atleta", 
+    ouro = "Ouro", 
+    prata = "Prata", 
+    bronze = "Bronze", 
+    total_geral = "Total") |>
+  # Cores (Degradê de Medalhas)
+  data_color(columns = ouro, palette = c("#FFD70030", "#FFD700")) |>
+  data_color(columns = prata, palette = c("#C0C0C030", "#C0C0C0")) |>
+  data_color(columns = bronze, palette = c("#CD7F3230", "#CD7F32")) |>
+  # Estilização de Texto
+  tab_style(
+    style = cell_text(color = "black"),
+    locations = cells_body(columns = everything())) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(columns = nome)) |>
+  # Formatação Numérica e Alinhamento
+  fmt_number(
+    columns = c(ouro, prata, bronze, total_geral), 
+    decimals = 0, 
+    use_seps = TRUE, 
+    sep_mark = ".", 
+    dec_mark = ",") |>
+  cols_align(align = "left", columns = nome) |>
+  cols_align(align = "center", columns = c(ouro, prata, bronze, total_geral)) |>
+  # Layout
+  tab_options(
+    heading.title.font.size = 24,
+    column_labels.font.weight = "bold",
+    table.width = pct(80))
+```
+
+```{r}
+# Quadro Medalhas Atletas Brasil
+tabela_atletas <- dados_participacoes |> 
+  filter(pais_sg == "BRA") |> 
+  group_by(atleta_id, nome) |> 
+  summarise(
+    ouro   = sum(medalha == "Ouro", na.rm = TRUE),
+    prata  = sum(medalha == "Prata", na.rm = TRUE),
+    bronze = sum(medalha == "Bronze", na.rm = TRUE),
+    .groups = "drop") |> 
+  mutate(total_geral = ouro + prata + bronze) |> 
+  arrange(desc(ouro), desc(prata), desc(bronze)) |> 
+  slice(1:10) |> 
+  select(nome, ouro, prata, bronze, total_geral)
+
+# Elaboração da tabela
+tabela_atletas |>
+  gt() |>
+  # Cabeçalho e Títulos
+  tab_header(
+    title = md("**QUADRO HISTÓRICO DE MEDALHAS**"),
+    subtitle = md("Atletas Brasileiros com Melhor Desempenho nos Jogos na História<br>(1920 Antuérpia – 2022 Beijing)")) |>
+  tab_style(
+    style = cell_text(style = "italic"),
+    locations = cells_title(groups = "subtitle")) |>
+  cols_label(
+    nome = "Atleta", 
+    ouro = "Ouro", 
+    prata = "Prata", 
+    bronze = "Bronze", 
+    total_geral = "Total") |>
+  # Cores (Degradê de Medalhas)
+  data_color(columns = ouro, palette = c("#FFD70030", "#FFD700")) |>
+  data_color(columns = prata, palette = c("#C0C0C030", "#C0C0C0")) |>
+  data_color(columns = bronze, palette = c("#CD7F3230", "#CD7F32")) |>
+  # Estilização de Texto
+  tab_style(
+    style = cell_text(color = "black"),
+    locations = cells_body(columns = everything())) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(columns = nome)) |>
+  # Formatação Numérica e Alinhamento
+  fmt_number(
+    columns = c(ouro, prata, bronze, total_geral), 
+    decimals = 0, 
+    use_seps = TRUE, 
+    sep_mark = ".", 
+    dec_mark = ",") |>
+  cols_align(align = "left", columns = nome) |>
+  cols_align(align = "center", columns = c(ouro, prata, bronze, total_geral)) |>
+  # Layout
+  tab_options(
+    heading.title.font.size = 24,
+    column_labels.font.weight = "bold",
+    table.width = pct(80))
+```
+
+Podemos aplicar outra visualização:
+
+```{r}
+# Medalhas Atletas
+quadro_atletas <- dados_participacoes |>
+  filter(!is.na(medalha)) |> 
+  # Conta a combinação de atleta e medalha
+  count(nome, medalha) |> 
+  # Transforma o tipo de medalha em colunas
+  pivot_wider(
+    names_from = medalha, 
+    values_from = n, 
+    values_fill = 0
+  ) |> 
+  mutate(across(any_of(c("Ouro", "Prata", "Bronze")), ~ .)) |>
+  # Cria o total e ordena
+  mutate(total = Ouro + Prata + Bronze) |> 
+  arrange(desc(Ouro), desc(Prata), desc(Bronze)) |> 
+  slice(1:10) |>
+  mutate(nome = fct_reorder(nome, Ouro + Prata/1000 + Bronze/1000000))
+
+# Plotagem
+ggplot(quadro_atletas) +
+  geom_segment(aes(x = pmin(Ouro, Prata, Bronze),
+                   xend = pmax(Ouro, Prata, Bronze),
+                   y = nome, yend = nome), color = "grey") +
+  # Ouros
+  geom_point(aes(x = Bronze, y= nome, color = "Bronze"), size = 8) +
+  # Pratas
+  geom_point(aes(x = Prata, y= nome, color = "Prata"), size = 6) +
+  # Bronzes
+  geom_point(aes(x = Ouro, y= nome, color = "Ouro"), size = 4) +
+  # Tema, Legendas e Títulos
+  scale_color_manual(
+    name = "TIPO DE MEDALHA",
+    values = c("Ouro" = "#FFD700", "Prata" = "#C0C0C0", "Bronze" = "#CD7F32"),
+    breaks = c("Ouro", "Prata", "Bronze")) +
+  labs(
+    title = "QUADRO HISTÓRICO DE MEDALHAS",
+    subtitle = "Atletas com Melhor Desempenho nos Jogos na História\n(1896 Atenas – 2022 Beijing)",
+    x = "MEDALHAS",
+    y = NULL) + 
+  theme_olympics() + 
+  theme(panel.grid.major.y = element_blank())
+```
+
+```{r}
+# Medalhas Atletas Brasil
+quadro_atletas <- dados_participacoes |>
+  filter(!is.na(medalha), pais_sg == "BRA") |> 
+  # Conta a combinação de atleta e medalha
+  count(nome, medalha) |> 
+  # Transforma o tipo de medalha em colunas
+  pivot_wider(
+    names_from = medalha, 
+    values_from = n, 
+    values_fill = 0
+  ) |> 
+  mutate(across(any_of(c("Ouro", "Prata", "Bronze")), ~ .)) |>
+  # Cria o total e ordena
+  mutate(total = Ouro + Prata + Bronze) |> 
+  arrange(desc(Ouro), desc(Prata), desc(Bronze)) |> 
+  slice(1:10) |>
+  mutate(nome = fct_reorder(nome, Ouro + Prata/1000 + Bronze/1000000))
+
+# Plotagem
+ggplot(quadro_atletas) +
+  geom_segment(aes(x = pmin(Ouro, Prata, Bronze),
+                   xend = pmax(Ouro, Prata, Bronze),
+                   y = nome, yend = nome), color = "grey") +
+  # Ouros
+  geom_point(aes(x = Bronze, y= nome, color = "Bronze"), size = 8) +
+  # Pratas
+  geom_point(aes(x = Prata, y= nome, color = "Prata"), size = 6) +
+  # Bronzes
+  geom_point(aes(x = Ouro, y= nome, color = "Ouro"), size = 4) +
+  # Tema, Legendas e Títulos
+  scale_x_continuous(breaks = seq(0, 2, by =1)) + 
+  scale_color_manual(
+    name = "TIPO DE MEDALHA",
+    values = c("Ouro" = "#FFD700", "Prata" = "#C0C0C0", "Bronze" = "#CD7F32"),
+    breaks = c("Ouro", "Prata", "Bronze")) +
+  labs(
+    title = "QUADRO HISTÓRICO DE MEDALHAS",
+    subtitle = "Atletas Brasileiros com Melhor Desempenho nos Jogos na História\n(1920 Antuérpia – 2022 Beijing)",
+    x = "MEDALHAS",
+    y = NULL) + 
+  theme_olympics() + 
+  theme(panel.grid.major.y = element_blank())
+```
+
+O nadador Micheal Phelps quando comparado com os demais atletas apresenta uma quantidade de medalhas de ouro desproporcionalmente superior ao demais, enquanto isso, os atletas brasileiros aparentam um desempenho relativamente similar aos outros.
+
+#### DISTRIBUIÇÃO DAS CIDADES SEDE
+
+Agora vamos utilizar algumas informações geográficas. Para isso vamos precisar de algumas geoometrias espaciais.
+
+```{r}
+# Preparação
+cidades_sedes <- dados_latlong |> 
+  filter(estacao == "Verão") |> 
+  count(cidade, longitude, latitude, name = "ocorrencia")
+
+cidades_sf_verao <- st_as_sf(cidades_sedes, 
+                       coords = c("longitude", "latitude"), 
+                       crs = 4326)
+
+cidades_sedes <- dados_latlong |> 
+  filter(estacao == "Inverno") |> 
+  count(cidade, longitude, latitude, name = "ocorrencia")
+
+cidades_sf_inverno <- st_as_sf(cidades_sedes, 
+                       coords = c("longitude", "latitude"), 
+                       crs = 4326)
+
+# Mapa Mundi (Robinson)
+mundo_sf <- ne_countries(scale = "large", returnclass = "sf") |> 
+  filter(continent != "Antarctica")
+```
+
+Agora vamos analisar a distribuição das sedes olímpicas utilizando a ferramenta dos mapas.
+
+```{r}
+# Plotagem
+ggplot() +
+  # Mapa
+  geom_sf(data = mundo_sf, fill = "#F2F2F2", color = "#D1D1D1", size = 0.1) +
+  # Cidades
+  geom_sf(data = cidades_sf_verao, 
+          aes(size = ocorrencia), 
+          color = winter_swiss_1928_palette$primary[1],
+          alpha = 0.6, 
+          shape = 16) +
+  # Adicionando um contorno sutil nos pontos para dar profundidade
+  geom_sf(data = cidades_sf_verao, 
+          aes(size = ocorrencia), 
+          color = winter_swiss_1928_palette$primary[1], 
+          shape = 21, 
+          stroke = 0.5, 
+          fill = NA) +
+  # Projeção Robinson
+  coord_sf(crs = "+proj=robin") + 
+  # Escala de tamanhos
+  scale_size_area(max_size = 6, breaks = c(1, 2, 3)) +
+  # Títulos e Temas
+  labs(
+    title = "CIDADES QUE SEDIARAM OS JOGOS",
+    subtitle = "Distribuição das Sedes das Olimpíadas de Verão (1896 Atenas – 2020 Tokyo)",
+    size = "OCORRÊNCIAS") +
+  theme_olympics() + 
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_blank())
+```
+
+```{r}
+# Plotagem
+ggplot() +
+  # Mapa
+  geom_sf(data = mundo_sf, fill = "#F2F2F2", color = "#D1D1D1", size = 0.1) +
+  # Cidades
+  geom_sf(data = cidades_sf_inverno, 
+          aes(size = ocorrencia), 
+          color = winter_swiss_1928_palette$primary[3],
+          alpha = 0.6, 
+          shape = 16) +
+  # Adicionando um contorno sutil nos pontos para dar profundidade
+  geom_sf(data = cidades_sf_inverno, 
+          aes(size = ocorrencia), 
+          color = winter_swiss_1928_palette$primary[3], 
+          shape = 21, 
+          stroke = 0.5, 
+          fill = NA) +
+  # Projeção Robinson
+  coord_sf(crs = "+proj=robin") + 
+  # Escala de tamanhos
+  scale_size_area(max_size = 4, breaks = c(1, 2)) +
+  # Títulos e Temas
+  labs(
+    title = "CIDADES QUE SEDIARAM OS JOGOS",
+    subtitle = "Distribuição das Sedes das Olimpíadas de Inverno (1896 Atenas – 2022 Beijing)",
+    size = "OCORRÊNCIAS") +
+  theme_olympics() + 
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_blank())
+```
+
+Os mapas nos mostram que a distribuição dos países que realizam os jogos olímpicos é bastante heterogênea. Existe uma concentração na Europa e na América Anglo-Saxônica, com poucos casos na Ásia, Oceania e na América Latina (Nenhuma ocorrência no continente africano).
+
+Por conta da grande densidade de pontos no continente europeu, vamos observar mais de perto esses casos.
+
+```{r}
+# Plotagem com Zoom na Europa
+ggplot() +
+  # Mapa
+  geom_sf(data = mundo_sf, fill = "#F2F2F2", color = "#D1D1D1", size = 0.1) +
+  # Cidades
+  geom_sf(data = cidades_sf_verao,
+          aes(size = ocorrencia), 
+          color = winter_swiss_1928_palette$primary[1],
+          alpha = 0.6, 
+          shape = 16) +
+  # Contorno sutil
+  geom_sf(data = cidades_sf_verao, 
+          aes(size = ocorrencia), 
+          color = winter_swiss_1928_palette$primary[1], 
+          shape = 21, 
+          stroke = 0.5, 
+          fill = NA) +
+  # Usamos crs = 4326 para que os limites x e y funcionem como esperado
+  coord_sf(xlim = c(-15, 42), ylim = c(33, 68), expand = FALSE) + 
+  scale_size_area(max_size = 8, breaks = c(1, 2, 3)) +
+  labs(
+    title = "FOCO: SEDES EUROPEIAS",
+    subtitle = "Olimpíadas de Verão na Europa (1896 Atenas – 2012 Londres)",
+    size = "OCORRÊNCIAS") +
+  theme_olympics() + 
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_blank())
+```
+
+```{r}
+# Plotagem com Zoom na Europa
+ggplot() +
+  # Mapa
+  geom_sf(data = mundo_sf, fill = "#F2F2F2", color = "#D1D1D1", size = 0.1) +
+  # Cidades
+  geom_sf(data = cidades_sf_inverno, 
+          aes(size = ocorrencia), 
+          color = winter_swiss_1928_palette$primary[3],
+          alpha = 0.6, 
+          shape = 16) +
+  # Contorno sutil
+  geom_sf(data = cidades_sf_inverno, 
+          aes(size = ocorrencia), 
+          color = winter_swiss_1928_palette$primary[3], 
+          shape = 21, 
+          stroke = 0.5, 
+          fill = NA) +
+  # Usamos crs = 4326 para que os limites x e y funcionem como esperado
+  coord_sf(xlim = c(-15, 42), ylim = c(33, 68), expand = FALSE) + 
+  scale_size_area(max_size = 8, breaks = c(1, 2, 3)) +
+  labs(
+    title = "FOCO: SEDES EUROPEIAS",
+    subtitle = "Olimpíadas de Inverno na Europa (1924 Chamonix – 2014 Sóchi)",
+    size = "OCORRÊNCIAS") +
+  theme_olympics() + 
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_blank())
+```
 
 ### IMPACTO DE SEDIAR OS JOGOS SOBRE O DESEMPENHO
 
@@ -789,7 +1724,7 @@ Os boxplots indicam que, em média, a distribuição do efeito sede é positiva,
 
 ### CONCLUSÃO E OBSERVAÇÕES
 
-<!-- Conclusão da parte geral -->
+Inicialmente, podemos perceber ao longo da análise uma heterogeneidade na distribuição dos atletas, medalhas e sediamento do evento. Apesar de representar menos de 15% da população mundial, a Europa e a América do Norte compõem os principais quadros de medalhas. Isso indica que apesar de propor uma dinâmica internacional do esporte, os recursos necessários para a garantia de fornecer treinamento, suporte e envio de atletas ainda não são uma realidade palpável para a maioria das nações.
 
 A partir das métricas construídas, identificou-se a existência de um efeito sede nos Jogos Olímpicos. Tanto o Score quanto o Índice de Medalhas indicam que, em média, os países tendem a apresentar desempenho superior quando competem como anfitriões, com medianas positivas em ambas as medidas. Apesar de capturarem dimensões distintas, as duas métricas apresentaram resultados convergentes. Isso sugere que sediar os Jogos pode ampliar não apenas o volume absoluto de medalhas, mas também a relevância proporcional do desempenho.
 
@@ -874,4 +1809,3 @@ theme_olympics <- function(pallete) {
     )
 }
 ```
-
