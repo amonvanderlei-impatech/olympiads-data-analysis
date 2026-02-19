@@ -18,16 +18,18 @@ As análises foram conduzidas utilizando a linguagem R e todo o código utilizad
 
 ```{r packages, message=FALSE, warning=FALSE}
 # install.packages(c("tidyverse", "ggrepel", "countrycode", "gt", "sf", "rnaturalearth", "rnaturalearthdata", "tidygeocoder", "patchwork"))
+# remotes::install_github("ropensci/rnaturalearthhires")
 
-library(tidyverse)
-library(ggrepel)
-library(countrycode)
-library(patchwork)
-library(gt)
 library(sf)
+library(gt)
+library(ggrepel)
+library(patchwork)
+library(tidyverse)
+library(countrycode)
+library(tidygeocoder)
 library(rnaturalearth)
 library(rnaturalearthdata)
-library(tidygeocoder)
+library(rnaturalearthhires)
 ```
 
 ```{r setup_theme, include=FALSE}
@@ -65,8 +67,6 @@ summer_brasil_2016_palette <- list(
   primary = c("#03588C", "#7ABF49", "#F2B90C", "#F26E22", "#F2F2F2")
 )
 
-# Usage: palette$primary[1])
-
 theme_olympics <- function() {
   theme_minimal(base_size = 12) +
     theme(
@@ -96,11 +96,11 @@ theme_olympics <- function() {
 As seguintes bases serão utilizadas ao longo da análise:
 
 ```{r datasets, message=FALSE, warning=FALSE}
-game <- read_csv("data/raw/game.csv")
-country <- read.csv("data/raw/country.csv")
-athlete_bio <- read.csv("data/raw/athlete_bio.csv")
-game_medal_tally <- read_csv("data/raw/game_medal_tally.csv")
-athlete_event_result <- read_csv("data/raw/athlete_event_result.csv")
+game <- read_csv("../data/raw/game.csv.gz")
+country <- read.csv("../data/raw/country.csv.gz")
+athlete_bio <- read.csv("../data/raw/athlete_bio.csv.gz")
+game_medal_tally <- read_csv("../data/raw/game_medal_tally.csv.gz")
+athlete_event_result <- read_csv("../data/raw/athlete_event_result.csv.gz")
 ```
 
 #### LIMPEZA DOS DADOS
@@ -386,7 +386,7 @@ ggplot(participantes_ano, aes(x = ano, y = contagem)) +
   theme_olympics()
 ```
 
-Com base nos gráficos elaborados acima, podemos concluir que as olimpíadas de varão em especial sofrem grande impacto de aspectos geopolíticos, enquanto isso, as olimpíadas de inverno por sua vez, possuem dificuldades mais relacionadas à esfera econômica e limite de verbas.
+Com base nos gráficos elaborados acima, podemos concluir que as olimpíadas de verão em especial sofrem grande impacto de aspectos geopolíticos, enquanto isso, as olimpíadas de inverno por sua vez, possuem dificuldades mais relacionadas à esfera econômica e limite de verbas.
 
 #### ANÁLISE POR GÊNERO
 
@@ -533,7 +533,7 @@ ggplot(piramide_genero_dados, aes(x = ano_fct, y = valor_grafico, fill = sexo)) 
   theme(panel.grid.major.x = element_line(color = "gray85"))
 ```
 
-Podemos ver que o percentual de mulheres participando dos jogos olímpicos era muito discreta, com um crescimento acelerado que tem início após a primeira metade do ´seculo XX, chegando em níveis comparáveis com a parcela masculina apenas nas última edições dos jogos.
+Podemos ver que o percentual de mulheres participando dos jogos olímpicos era muito discreto, com um crescimento acelerado que tem início após a primeira metade do século XX, chegando em níveis comparáveis com a parcela masculina apenas nas última edições dos jogos.
 
 #### ANÁLISE POR PAÍS
 
@@ -970,7 +970,7 @@ ggplot(quadro_atletas) +
   theme(panel.grid.major.y = element_blank())
 ```
 
-O nadador Micheal Phelps quando comparado com os demais atletas apresenta uma quantidade de medalhas de ouro desproporcionalmente superior ao demais, enquanto isso, os atletas brasileiros aparentam um desempenho relativamente similar aos outros.
+O nadador Michall Phelps quando comparado com os demais atletas apresenta uma quantidade de medalhas de ouro desproporcionalmente superior ao demais, enquanto isso, os atletas brasileiros aparentam um desempenho relativamente similar aos outros.
 
 #### DISTRIBUIÇÃO DAS CIDADES SEDE
 
@@ -1145,8 +1145,7 @@ athlete_count <- athlete_event_result |>
   select(
     edition_id,
     country_noc,
-    athlete_id,
-    medal
+    athlete_id
   ) |>
   group_by(edition_id, country_noc) |>
   summarise(
@@ -1510,11 +1509,8 @@ score_by_country <- medals_per_country_per_edition |>
   facet_wrap(~ edition, scales = "free") +
   scale_fill_manual(values = summer_brasil_2016_palette$primary) +
   labs(
-    title = "Score por país",
-    subtitle = "Brasil destacado",
     x = NULL,
-    y = "Score",
-    caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
+    y = "Score"
   ) +
   theme_olympics()
 
@@ -1541,19 +1537,22 @@ medal_rate_by_country <- medals_per_country_per_edition |>
   facet_wrap(~ edition, scales = "free") +
   scale_fill_manual(values = summer_brasil_2016_palette$primary) +
   labs(
-    title = "Índice de Medalhas por país",
-    subtitle = "Brasil destacado",
     x = NULL,
-    y = "Índice de Medalhas",
-    caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
+    y = "Índice de Medalhas"
   ) +
   theme_olympics()
 
 (score_by_country + medal_rate_by_country) +
   plot_layout(widths = c(1, 1)) +
   plot_annotation(
-    title = "Impacto de sediar os Jogos Olímpicos",
-    subtitle = "Comparação entre Score e Índice de Medalhas"
+    title = "Métricas por país",
+    subtitle = "Brasil destacado",
+    caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
+  ) &
+  theme(
+    plot.title = element_text(face = "bold", size = 18),
+    plot.subtitle = element_text(face = "italic", size = 13, margin = margin(b = 8)),
+    plot.caption = element_text(size = 11, color = "gray10")
   )
 ```
 
@@ -1581,11 +1580,8 @@ score_athletes <- medals_per_country_per_edition |>
   scale_color_manual(values = summer_brasil_2016_palette$primary, name = NULL) +
   scale_size_continuous(range = c(2, 12)) +
   labs(
-    title = "Score brasileiro por edição nos jogos de verão",
-    subtitle = "Tamanho do ponto representa o número de atletas medalhistas",
     x = NULL,
-    y = "Score",
-    caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
+    y = "Score"
   ) +
   guides(size = "none") +
   theme_olympics()
@@ -1612,11 +1608,8 @@ medal_rate_athletes <- medals_per_country_per_edition |>
   scale_color_manual(values = summer_brasil_2016_palette$primary, name = NULL) +
   scale_size_continuous(range = c(2, 12)) +
   labs(
-    title = "Índice de Medalhas brasileiro por edição nos jogos de verão",
-    subtitle = "Tamanho do ponto representa o número de atletas medalhistas",
     x = NULL,
-    y = "Índice de Medalhas",
-    caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
+    y = "Índice de Medalhas"
   ) +
   guides(size = "none") +
   theme_olympics()
@@ -1624,8 +1617,14 @@ medal_rate_athletes <- medals_per_country_per_edition |>
 (score_athletes + medal_rate_athletes) +
   plot_layout(widths = c(1, 1)) +
   plot_annotation(
-    title = "Evolução brasileira nos Jogos Olímpicos",
-    subtitle = "Comparação entre Score e Índice de Medalhas"
+    title = "Métricas brasileiras por edição nos jogos de verão",
+    subtitle = "Tamanho do ponto representa o número de atletas medalhistas",
+    caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
+  ) &
+  theme(
+    plot.title = element_text(face = "bold", size = 18),
+    plot.subtitle = element_text(face = "italic", size = 13, margin = margin(b = 8)),
+    plot.caption = element_text(size = 11, color = "gray10")
   )
 ```
 
@@ -1681,11 +1680,8 @@ score_host_effect <- ggplot(host_effect_score, aes(x = edition, y = host_effect,
   ) +
   scale_fill_manual(values = winter_italy_1956_palette$secondary) +
   labs(
-    title = "Distribuição do Efeito Sede por País",
-    subtitle = "Diferença média de pontuação - Brasil destacado",
     x = NULL,
     y = "Efeito Sede (Score)",
-    caption = "Fonte: Base dos Dados - Historical Data from the Olympics",
     color = NULL
   ) +
   theme_olympics()
@@ -1703,11 +1699,8 @@ medal_rate_host_effect <- ggplot(host_effect_medal_rate, aes(x = edition, y = ho
   ) +
   scale_fill_manual(values = winter_italy_1956_palette$secondary) +
   labs(
-    title = "Distribuição do Efeito Sede por País",
-    subtitle = "Diferença média de pontuação - Brasil destacado",
     x = NULL,
     y = "Efeito Sede (Índice de Medalhas)",
-    caption = "Fonte: Base dos Dados - Historical Data from the Olympics",
     color = NULL
   ) +
   theme_olympics()
@@ -1715,8 +1708,14 @@ medal_rate_host_effect <- ggplot(host_effect_medal_rate, aes(x = edition, y = ho
 (score_host_effect + medal_rate_host_effect) +
   plot_layout(widths = c(1, 1)) +
   plot_annotation(
-    title = "Efeito sede nos Jogos Olímpicos",
-    subtitle = "Comparação entre Score e Índice de Medalhas"
+    title = "Distribuição do Efeito Sede por País",
+    subtitle = "Diferença média de pontuação - Brasil destacado",
+    caption = "Fonte: Base dos Dados - Historical Data from the Olympics"
+  ) &
+  theme(
+    plot.title = element_text(face = "bold", size = 18),
+    plot.subtitle = element_text(face = "italic", size = 13, margin = margin(b = 8)),
+    plot.caption = element_text(size = 11, color = "gray10")
   )
 ```
 
@@ -1728,11 +1727,7 @@ Inicialmente, podemos perceber ao longo da análise uma heterogeneidade na distr
 
 A partir das métricas construídas, identificou-se a existência de um efeito sede nos Jogos Olímpicos. Tanto o Score quanto o Índice de Medalhas indicam que, em média, os países tendem a apresentar desempenho superior quando competem como anfitriões, com medianas positivas em ambas as medidas. Apesar de capturarem dimensões distintas, as duas métricas apresentaram resultados convergentes. Isso sugere que sediar os Jogos pode ampliar não apenas o volume absoluto de medalhas, mas também a relevância proporcional do desempenho.
 
-No caso brasileiro, observou-se melhora expressiva em 2016, acompanhada por aumento no número de atletas. Parte desse efeito pode ser explicada por fatores como maior delegação e apoio da torcida, mas os resultados em 2020 indicam que investimentos realizados no ciclo olímpico também podem ter contribuído. Entretanto, a dispersão geral observada mostra que os ganhos variam significativamente, sugerindo que o impacto também depende de características estruturais, como tradição esportiva e capacidade de investimento. Além disso, países escolhidos para sediar os Jogos frequentemente já possuem forte histórico esportivo.
-
-### AGRADECIMENTOS
-
-<!-- Escrever -->
+No caso brasileiro, observou-se melhora expressiva em 2016, acompanhada por aumento no número de atletas. Parte desse efeito pode ser explicada por fatores como maior delegação e apoio da torcida, mas os resultados em 2020 indicam que investimentos realizados no ciclo olímpico também podem ter contribuído. Entretanto, a dispersão observada no caso geral mostra que os ganhos variam significativamente, sugerindo que o impacto também depende de características estruturais, como tradição esportiva e capacidade de investimento. Além disso, países escolhidos para sediar os Jogos frequentemente já possuem forte histórico esportivo.
 
 ### REFERÊNCIAS
 
@@ -1748,7 +1743,7 @@ SCIELO. *Visual abstracts*. Disponível em: https://www.scielo.br/j/jbn/a/4kqVkw
 
 THE OLYMPIC DESIGN. *Olympic Games – The Design*. Disponível em: https://www.theolympicdesign.com/.
 
-### APÊNDICE - VARIÁVEIS E FUNÇÕES AUXILIARES
+### APÊNDICE - PALETAS E TEMA
 
 ```{r appendix}
 # Paletas
@@ -1784,8 +1779,6 @@ summer_canada_1976_palette <- list(
 summer_brasil_2016_palette <- list(
   primary = c("#03588C", "#7ABF49", "#F2B90C", "#F26E22", "#F2F2F2")
 )
-
-# Usage: palette$primary[1])
 
 theme_olympics <- function(pallete) {
   theme_minimal(base_size = 12) +
