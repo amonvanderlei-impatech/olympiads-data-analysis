@@ -1,6 +1,7 @@
 ---
 title: "ANÁLISE DOS JOGOS OLÍMPICOS MODERNOS"
-output: html_document
+output:
+  html_document: default
 ---
 
 ## AV2 - INTRODUÇÃO À CIÊNCIA DE DADOS
@@ -1400,7 +1401,10 @@ ggplot(
       summer_canada_1976_palette$primary,
       winter_germany_1936_palette$primary,
       summer_usa_1932_palette$primary,
-      winter_swiss_1928_palette$primary
+      winter_swiss_1928_palette$primary,
+      winter_italy_1956_palette$primary,
+      summer_brasil_2016_palette$primary,
+      summer_canada_1976_palette$primary
     )
   ) +
   facet_wrap(~ edition, ncol = 2, scales = "free") +
